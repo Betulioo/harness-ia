@@ -127,13 +127,28 @@ describe("Cambios irreversibles en git", () => {
       "git stash drop",
       "git switch --discard-changes main",
       'git commit -n -m "x"',
-      "git -c core.hooksPath=/dev/null commit -m x",
-      "git config core.hooksPath /dev/null",
     ]);
   });
 
   it("permite lo que no pierde trabajo", () => {
     assertAllowed(["git status", "git diff --stat", "git switch -c cambio/nuevo", "git checkout -b cambio/nuevo", "git switch main", "git reset HEAD src/app.ts", "git stash", "git branch -d cambio/viejo", "git log --oneline -3"]);
+  });
+});
+
+describe("Hooks de git: se pueden consultar, no cambiar", () => {
+  it("bloquea cambiar o borrar core.hooksPath, también solo para un comando", () => {
+    assertBlocked([
+      "git config core.hooksPath /dev/null",
+      "git config --global core.hooksPath ''",
+      "git config --unset core.hooksPath",
+      "git config set core.hooksPath /tmp",
+      "git config --file .git/config core.hooksPath x",
+      "git -c core.hooksPath=/dev/null commit -m x",
+    ]);
+  });
+
+  it("permite leer core.hooksPath y la configuración", () => {
+    assertAllowed(["git config core.hooksPath", "git config --get core.hooksPath", "git config get core.hooksPath", "git config --list", "git config user.name"]);
   });
 });
 

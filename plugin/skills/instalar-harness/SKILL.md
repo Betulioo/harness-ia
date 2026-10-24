@@ -47,7 +47,10 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
 1. Ejecuta el comando de verificación: debe pasar. Si no pasa, el primer paso del plan es arreglarlo.
 2. Comprueba el guardián desde una sesión **sin** `HARNESS_MAINTENANCE`: pide al agente leer `.env` y hacer
    `git push origin <rama principal>`. Los dos deben quedar bloqueados.
-3. Escribe la primera entrada del registro (qué se instaló, con qué política y qué queda pendiente), su línea en
+3. Recomienda pasar `pape:harness-audit` ahora que el harness existe: comprueba su coherencia (que el
+   `verifyCommand` sea lo que ejecuta la CI, que ningún hook falle abierto, que las reglas escritas tengan algo que
+   las aplique). Si el plugin `pape` no está instalado, dilo.
+4. Escribe la primera entrada del registro (qué se instaló, con qué política y qué queda pendiente), su línea en
    `docs/decisiones.md` y el Estado y Próximo paso de `docs/bitacora.md`.
 
 ## 4. Lo que el agente no puede hacer (dáselo a la persona como lista)

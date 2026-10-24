@@ -27,7 +27,7 @@ El guardián analiza texto y un comando muy retorcido podría escaparse. La barr
 | skill `reflect` (`/reflect`) | Reflexión crítica sobre el trabajo del turno |
 | skill `revisar` + agente `revisor` | Revisión en solo lectura frente al plan y a las reglas; informe en `docs/revisiones/` |
 | skill `tests-semanticos` | Qué debe comprobar un test para que proteja algo |
-| skill `auditar-repo` | Auditoría en solo lectura de un repo heredado; informe en `docs/auditoria-AAAA-MM-DD.md` |
+| skill `auditar-repo` | Auditoría en solo lectura de un repo heredado: despliegue, datos, secretos, dependencias y comprobaciones mínimas, con un subagente que intenta refutar cada hallazgo. Informe en `docs/auditoria-AAAA-MM-DD.md`. La configuración del agente no: eso es [`pape:harness-audit`](#auditorías-cuál-usar) |
 | skill `instalar-harness` | Copia y adapta las plantillas (`CLAUDE.md`, bitácora, `harness.json`, settings, pre-push y CI) |
 
 La bitácora se reparte en tres archivos para que no crezca sin límite ni choque entre ramas: `docs/bitacora.md`
@@ -35,6 +35,16 @@ La bitácora se reparte en tres archivos para que no crezca sin límite ni choqu
 `docs/decisiones.md` (índice de una línea por decisión). Formato en la plantilla `bitacora.md`.
 | hook `PreToolUse` (`guard.mjs`) | Bloquea con un motivo en lenguaje llano (ver "Qué bloquea") |
 | hook `Stop` (`verify-on-stop.mjs`) | Si hay cambios sin commitear, ejecuta el `verifyCommand` antes de que el agente termine; si falla, le obliga a corregir o explicar |
+
+## Auditorías: cuál usar
+
+| | `harness-ia:auditar-repo` | `pape:harness-audit` (plugin `pape`) |
+|---|---|---|
+| Pregunta | ¿Puede alguien que no programa cambiar este repo sin romper la aplicación ni sus datos? | ¿El harness del agente es coherente y está aplicado? |
+| Mira | Despliegue, previews, BD y RLS, crons, secretos, vulnerabilidades, comprobaciones mínimas | CLAUDE.md, permisos, hooks, CI frente al DoD, tests, subagentes, skills, MCP |
+| Cuándo | Al adoptar un repo, antes de `instalar-harness` | Después de `instalar-harness`, y de vez en cuando para ver la tendencia |
+
+No se solapan a propósito: `auditar-repo` apunta lo que ve del harness en una línea y remite a pape.
 
 ## Qué bloquea el guardián
 

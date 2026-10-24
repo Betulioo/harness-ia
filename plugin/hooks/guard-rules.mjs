@@ -27,6 +27,14 @@ const PUSH_FORBIDDEN_FLAGS = new Set([
   "-f", "--force", "--force-if-includes", "--mirror", "--delete", "-d", "--all", "--prune", "--no-verify",
 ]);
 
+// `git config` escribe con estas opciones (o con la sintaxis nueva `git config set|unset …`) y lee con las de
+// lectura; sin ninguna, escribe si hay un valor después de la clave.
+const CONFIG_WRITE_OPTIONS = new Set([
+  "--unset", "--unset-all", "--add", "--replace-all", "--rename-section", "--remove-section", "--edit", "-e",
+  "set", "unset", "rename-section", "remove-section", "edit",
+]);
+const CONFIG_READ_OPTIONS = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l", "get", "list"]);
+
 export function evaluateToolUse(hookInput, context) {
   const toolName = hookInput.tool_name ?? "";
   const toolInput = hookInput.tool_input ?? {};
@@ -103,11 +111,14 @@ function findInvocation(segment, program) {
   return { globalOptions: match[1] ?? "", args: tokenize(match[2] ?? "") };
 }
 
+// Un argumento vacío entre comillas ('' o "") se conserva: `git config core.hooksPath ''` también escribe.
+const EMPTY_ARGUMENT = '""';
+
 function tokenize(text) {
   return text
     .split(/\s+/)
-    .map((token) => token.replace(/^["'`]+|["'`)]+$/g, ""))
-    .filter(Boolean);
+    .filter(Boolean)
+    .map((token) => token.replace(/^["'`]+|["'`)]+$/g, "") || EMPTY_ARGUMENT);
 }
 
 function checkSecretFiles(command) {
@@ -193,7 +204,7 @@ function checkGit(segment, context) {
     case "stash":
       return ["drop", "clear"].includes(args[0] ?? "") ? blocked("borrar cambios guardados con stash no se puede deshacer.") : ALLOWED;
     case "config":
-      return args.some((arg) => /hooksPath/i.test(arg)) ? blocked("no se pueden cambiar los hooks de git.") : ALLOWED;
+      return writesHooksPath(args) ? blocked("no se pueden cambiar los hooks de git.") : ALLOWED;
     case "commit":
       return checkCommit(args, context);
     case "push":
@@ -205,6 +216,16 @@ function checkGit(segment, context) {
     default:
       return ALLOWED;
   }
+}
+
+/** Leer `core.hooksPath` es inofensivo; cambiarlo o borrarlo desactiva el pre-push. */
+function writesHooksPath(args) {
+  if (!args.some((arg) => /hooksPath/i.test(arg))) return false;
+  if (args.some((arg) => CONFIG_WRITE_OPTIONS.has(arg))) return true;
+  if (args.some((arg) => CONFIG_READ_OPTIONS.has(arg))) return false;
+  const positional = args.filter((arg) => !arg.startsWith("-"));
+  const keyIndex = positional.findIndex((arg) => /hooksPath/i.test(arg));
+  return positional.length > keyIndex + 1;
 }
 
 function checkCommit(args, context) {
