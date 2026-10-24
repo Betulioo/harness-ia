@@ -1,0 +1,14 @@
+{
+  "name": "harness-ia",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Plugin de Claude Code: forma de trabajar y protecciones para repositorios.",
+  "scripts": {
+    "test": "node --test",
+    "verify": "npm test"
+  },
+  "engines": {
+    "node": ">=20.19"
+  }
+}

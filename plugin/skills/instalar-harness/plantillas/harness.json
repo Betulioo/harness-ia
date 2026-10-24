@@ -1,0 +1,8 @@
+{
+  "mainBranch": "{{main}}",
+  "commitPolicy": "{{persona|rama}}",
+  "verifyCommand": "{{npm run verify}}",
+  "protectedPaths": ["package.json", "package-lock.json", "{{carpeta de migraciones}}/"],
+  "blockedTools": [],
+  "blockedCommands": []
+}

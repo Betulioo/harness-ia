@@ -1,0 +1,28 @@
+{
+  "description": "Guardián antes de cada herramienta y verificación del proyecto antes de terminar el turno.",
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/guard.mjs\"",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/verify-on-stop.mjs\"",
+            "timeout": 600
+          }
+        ]
+      }
+    ]
+  }
+}

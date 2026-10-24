@@ -1,0 +1,30 @@
+# Comprobación externa: lo mismo que el pre-push. Es la barrera final de la validación automática:
+# la rama principal debe exigir que este job pase antes de mezclar una PR (Settings → Branches/Rules).
+# Permisos de solo lectura, credenciales sin persistir y acciones fijadas por SHA.
+name: CI
+on:
+  push:
+    branches: [{{rama principal}}]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  verify:
+    name: verify
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "{{versión mínima de engines}}"
+          cache: npm
+      - name: Instalar dependencias
+        run: npm ci
+      - name: Verificación
+        run: {{comando de verificación}}

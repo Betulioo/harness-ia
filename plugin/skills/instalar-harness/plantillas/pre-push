@@ -1,0 +1,9 @@
+#!/bin/sh
+# Antes de subir: el mismo "terminado" que pide la skill cerrar-paso. Se activa con el script "prepare"
+# (git config core.hooksPath .githooks). Se puede saltar con --no-verify (el harness lo bloquea al agente);
+# por eso la CI repite la comprobación en GitHub en cada PR.
+set -e
+
+echo "pre-push: {{comando de verificación}}…"
+{{comando de verificación}}
+echo "pre-push: todo en verde."

@@ -1,0 +1,8 @@
+{
+  "name": "harness-ia",
+  "version": "0.1.0",
+  "description": "Forma de trabajar y protecciones para usar Claude Code en un repositorio sin romper nada: sesiones con bitácora, cierre verificado, revisión, auditoría de repos heredados y un guardián que bloquea lo irreversible.",
+  "author": {
+    "name": "Betulioo"
+  }
+}

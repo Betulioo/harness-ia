@@ -1,0 +1,13 @@
+{
+  "name": "harness-ia",
+  "owner": {
+    "name": "Betulioo"
+  },
+  "plugins": [
+    {
+      "name": "harness-ia",
+      "source": "./plugin",
+      "description": "Forma de trabajar y protecciones para usar Claude Code en un repositorio sin romper nada."
+    }
+  ]
+}

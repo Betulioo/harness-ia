@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "defaultMode": "plan",
+    "deny": [
+      "Read(./.env)",
+      "Read(./.env.*)",
+      "Bash(git checkout *)",
+      "Bash(git restore *)",
+      "Bash(git reset --hard*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)"
+    ]
+  },
+  "extraKnownMarketplaces": {
+    "harness-ia": {
+      "source": {
+        "source": "github",
+        "repo": "{{propietario}}/harness-ia"
+      }
+    }
+  },
+  "enabledPlugins": {
+    "harness-ia@harness-ia": true
+  }
+}
