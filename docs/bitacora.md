@@ -26,9 +26,9 @@ Plan: `C:\Users\luisn\.claude\plans\lo-que-necesito-es-fluffy-meteor.md` (fases 
 
 ## Próximo paso
 
-1. La persona instala el plugin en local (`claude plugin marketplace add` + `claude plugin install`, en el README)
-   y comprueba en una sesión real que `/harness-ia:iniciar-sesion` aparece, leer `.env` se bloquea y el hook
-   `Stop` se ejecuta.
+1. Repo publicado en `github.com/Betulioo/harness-ia`. La persona instala el plugin desde GitHub
+   (`claude plugin marketplace add Betulioo/harness-ia` + `claude plugin install`) y hace la prueba en una carpeta
+   desechable: skills visibles, `.env` y push a `main` bloqueados, hook `Stop` con verify rojo.
 2. Decidir si se añade CODEOWNERS (aprobación de Luis solo en rutas sensibles) al plan; propuesto, sin decidir.
 3. Fase 2: abrir una sesión en `moneyball-web` y ejecutar `auditar-repo`.
 

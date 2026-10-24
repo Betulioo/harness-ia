@@ -15,7 +15,7 @@
     "harness-ia": {
       "source": {
         "source": "github",
-        "repo": "{{propietario}}/harness-ia"
+        "repo": "Betulioo/harness-ia"
       }
     }
   },

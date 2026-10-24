@@ -78,19 +78,23 @@ protegidas. Los secretos siguen bloqueados. El agente no puede activarlo desde d
 Requisitos: Node ≥ 20.19 (los hooks son scripts de Node sin dependencias), `git` y `gh` autenticado si la política es
 `rama`.
 
-En local, mientras el plugin no esté publicado:
+Desde GitHub:
 
 ```bash
-claude plugin marketplace add C:/Users/luisn/Desktop/money-ball/harness-ia
+claude plugin marketplace add Betulioo/harness-ia
 ```
 
 ```bash
 claude plugin install harness-ia@harness-ia
 ```
 
-Una vez en GitHub, el `.claude/settings.json` del proyecto lo activa para todo el equipo (plantilla en
-`plugin/skills/instalar-harness/plantillas/settings.json`). Después, en el proyecto: `auditar-repo` →
-`instalar-harness` → pasos manuales en GitHub que lista esa skill.
+Para probar cambios sin publicarlos, el marketplace también se puede añadir desde la carpeta local
+(`claude plugin marketplace add <ruta a harness-ia>`).
+
+En un proyecto, su `.claude/settings.json` lo activa para todo el equipo (plantilla en
+`plugin/skills/instalar-harness/plantillas/settings.json`): cada persona solo tiene que aceptar el plugin al abrir
+Claude Code en el repo. Si el repositorio del plugin es privado, cada persona necesita acceso de lectura a él.
+Después, en el proyecto: `auditar-repo` → `instalar-harness` → pasos manuales en GitHub que lista esa skill.
 
 ## Desarrollo
 
