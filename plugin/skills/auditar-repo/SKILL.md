@@ -1,12 +1,13 @@
 ---
 name: auditar-repo
-description: Audita en solo lectura si un repositorio heredado o hecho sin criterio ("vibe coding") está listo para que una persona que no programa haga cambios con validación solo automática: despliegue, datos, secretos, dependencias, código y las comprobaciones mínimas. Escribe un informe verificado con prioridades. Úsala al adoptar un repo o cuando se pida "auditar el repo" o "¿está listo para el harness?". No revisa la configuración del agente (eso es pape:harness-audit) ni corrige nada.
+description: Audita en solo lectura si un repositorio heredado o hecho sin criterio ("vibe coding") está listo para que una persona que no programa haga cambios sin revisión técnica del código (comprobaciones automáticas y visto bueno en la preview): despliegue, datos, secretos, dependencias, código y las comprobaciones mínimas. Escribe un informe verificado con prioridades. Úsala al adoptar un repo o cuando se pida "auditar el repo" o "¿está listo para el harness?". No revisa la configuración del agente (eso es pape:harness-audit) ni corrige nada.
 ---
 
 # Auditar un repositorio
 
-Objetivo: saber qué hay que arreglar para que una persona que no programa pueda hacer cambios **con validación solo
-automática** sin romper la aplicación ni sus datos. Informas; la persona decide. **No modificas nada** salvo el
+Objetivo: saber qué hay que arreglar para que una persona que no programa pueda hacer cambios **sin revisión técnica
+del código** sin romper la aplicación ni sus datos: las comprobaciones automáticas deciden si algo se rompe y una
+persona, mirando la preview, si es lo que se pidió. Informas; la persona decide. **No modificas nada** salvo el
 informe.
 
 ## Qué no cubre: la configuración del agente
@@ -97,11 +98,12 @@ Quien escribe los hallazgos no debe ser el único que los comprueba. Antes de es
 Escribe `docs/auditoria-AAAA-MM-DD.md` (crea `docs/` si no existe) y muestra el resumen en el chat.
 
 1. **Veredicto** en 3 líneas: ¿puede usarlo ya alguien que no programa? Si no, qué lo impide.
-2. **Requisitos mínimos para validación automática**, con ✅/❌/❓ y evidencia:
+2. **Requisitos mínimos para trabajar sin revisión técnica**, con ✅/❌/❓ y evidencia:
    - Un solo comando de verificación que pasa en local.
    - Tests sobre la lógica con más riesgo.
    - CI que ejecuta la verificación en cada PR.
-   - Rama principal protegida: PR obligatoria, CI obligatoria y sin push directo.
+   - Rama principal protegida: PR obligatoria, CI obligatoria, sin push directo y sin merge automático.
+   - Previews por PR donde una persona pueda ver el cambio antes de aprobarlo (con sesión, si la app la pide).
    - Harness instalado (`.claude/harness.json` y plugin activo) con las rutas peligrosas protegidas.
    - El agente no puede leer secretos ni escribir en producción (BD, despliegue).
    - Las previews no usan datos de producción (o el riesgo está aceptado por escrito).

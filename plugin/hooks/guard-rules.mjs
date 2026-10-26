@@ -278,12 +278,13 @@ function checkGitHubCli(segment, context) {
   if (!invocation) return ALLOWED;
   const [group = "", action = "", ...args] = invocation.args;
 
+  // Ningún merge automático ni desde el agente: una persona aprueba y mezcla la PR en GitHub, después de mirar la
+  // preview. Las comprobaciones solo ven lo que tiene tests; si el resultado es el que se pidió, solo lo ve alguien.
   if (group === "pr" && action === "merge") {
-    if (context.config.commitPolicy === "persona") return blocked("en este proyecto las PRs las mergea la persona.");
-    if (args.includes("--admin")) return blocked("--admin se salta la protección de la rama principal.");
-    if (!args.includes("--auto")) {
-      return blocked("solo se permite `gh pr merge --auto`: GitHub mergea la PR cuando la CI está en verde.");
-    }
+    return blocked("las PRs las aprueba y las mezcla una persona en GitHub; el agente no las mezcla, tampoco con --auto.");
+  }
+  if (group === "pr" && action === "review" && args.some((arg) => arg === "--approve" || arg === "-a")) {
+    return blocked("aprobar una PR le toca a una persona en GitHub, no al agente.");
   }
   if (group === "api" && apiMethod(invocation.args) !== "GET") {
     return blocked("con `gh api` solo se permite leer (GET): escribir podría cambiar la configuración del repositorio.");

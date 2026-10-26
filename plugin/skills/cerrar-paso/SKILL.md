@@ -28,10 +28,10 @@ Nada está terminado hasta completar esta lista. Lee `.claude/harness.json` para
    2. `git add` de los archivos del paso (no `git add -A` a ciegas: revisa el paso 2) y `git commit` con un mensaje
       en español que diga qué cambia para el usuario de la aplicación.
    3. `git push -u origin <rama>` y `gh pr create` con: qué cambia, por qué (la petición de la persona), cómo
-      comprobarlo y el resultado de la verificación.
-   4. `gh pr merge <número> --auto --squash`: GitHub la mezcla solo cuando la CI pase. Si no se puede activar,
-      dilo; no busques otra forma de mezclarla.
-   5. Comprueba con `gh pr checks <número>` que la CI arrancó. No esperes en bucle a que termine.
+      comprobarlo en la preview y el resultado de la verificación.
+   4. Comprueba con `gh pr checks <número>` que la CI arrancó. No esperes en bucle a que termine.
+   5. **Aquí paras.** La PR la aprueba y la mezcla una persona en GitHub, después de mirar la preview. No la mezcles
+      ni la apruebes tú, tampoco con merge automático (el guardián lo bloquea).
 6. **Mensaje final**, no solo un resumen: qué ha cambiado, cómo comprobarlo (la URL de la preview si la hay, o qué
    pantalla mirar) y lo que la persona haya pedido expresamente. Si no programa, sin jerga y sin rutas de archivos
    salvo que las pida.

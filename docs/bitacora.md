@@ -13,8 +13,9 @@ nombre: son de antes de ese formato y no se renombran.
 ## Estado
 
 - [x] 0.1.0 → 0.2.0 (publicada): guardián, skills, plantillas, `auditar-repo` con verificador y remisión a pape
-- [x] 0.3.0 (sin commit): bitácora por personas (`HARNESS_PERSONA`), `iniciar-sesion` no se detiene sin
-  `harness.json`, README con "Preparar el equipo de una persona"
+- [x] 0.3.0 (publicada): bitácora por personas (`HARNESS_PERSONA`), `iniciar-sesion` no se detiene sin
+  `harness.json`, README con "Preparar el equipo de una persona" y guía para quien no programa
+- [x] 0.4.0 (sin commit): ningún merge automático; una persona aprueba y mezcla la PR en GitHub tras ver la preview
 - [ ] Piloto en moneyball-web: en curso, con su propia bitácora
 - [ ] Probar en la app de escritorio la activación por `.claude/settings.json` del proyecto (opción sin comandos)
 

@@ -1,6 +1,6 @@
 ---
 name: pedir-cambio
-description: Flujo para que una persona que no programa pida un cambio en la aplicación en lenguaje llano. Lo convierte en un paso pequeño con criterio de aceptación, pide confirmación, lo implementa en una rama, lo verifica y abre una PR que se mezcla sola si la CI pasa. Úsala cuando alguien pida "cambia…", "añade…", "arregla…" o "quiero que la web…".
+description: Flujo para que una persona que no programa pida un cambio en la aplicación en lenguaje llano. Lo convierte en un paso pequeño con criterio de aceptación, pide confirmación, lo implementa en una rama, lo verifica y abre una PR que una persona aprueba y mezcla en GitHub después de mirar la preview. Úsala cuando alguien pida "cambia…", "añade…", "arregla…" o "quiero que la web…".
 ---
 
 # Pedir un cambio
@@ -40,13 +40,17 @@ y seguro, y contárselo en sus palabras. Nunca le pidas que lea código, un diff
 4. No añadas dependencias, no cambies la configuración ni toques nada fuera de lo acordado. Si hace falta, vuelve
    al punto 1.6.
 
-## 3. Cerrar y publicar
+## 3. Cerrar y dejarlo listo para revisar
 
-Sigue `cerrar-paso` entero, incluida la publicación en una rama con PR y merge automático.
+Sigue `cerrar-paso` entero, incluida la PR. **No la mezcles ni la apruebes**: eso lo hace una persona en GitHub.
 El mensaje final para la persona:
 - Qué has cambiado, en una o dos frases y con sus palabras.
-- Dónde verlo: el enlace de la PR y, cuando Vercel (o el servicio de previews) la publique, la preview.
-- Qué pasa ahora: "si las comprobaciones automáticas pasan, se publica solo; si fallan, te aviso y lo arreglo".
+- Dónde verlo: el enlace de la PR y, cuando Vercel (o el servicio de previews) la publique, el de la preview.
+- Qué pasa ahora: "mira la preview; si es lo que querías y las comprobaciones están en verde, se aprueba y se
+  publica desde GitHub. Si quieres algo distinto, dímelo y lo cambio en la misma PR".
+
+Si la persona pide cambios después de ver la preview, hazlos en la misma rama (vuelve a `cerrar-paso`: el push
+actualiza la PR y su preview). No abras una PR nueva para lo mismo.
 
 ## Si algo se bloquea
 

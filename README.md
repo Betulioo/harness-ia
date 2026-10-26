@@ -6,23 +6,25 @@ cierre verificado, revisión frente al plan, reglas que se comprueban) y añade 
 
 ## Idea
 
-Una regla escrita en el `CLAUDE.md` depende de que el agente la recuerde. Si nadie técnico revisa los cambios, eso no
-basta: lo peligroso tiene que estar **impedido**. Por eso hay tres capas:
+Una regla escrita en el `CLAUDE.md` depende de que el agente la recuerde. Si nadie técnico revisa el código, eso no
+basta: lo peligroso tiene que estar **impedido**. Por eso hay cuatro capas:
 
 | Capa | Qué hace | Dónde |
 |---|---|---|
 | Forma de trabajar | Sesiones con bitácora, pasos pequeños, criterios ante la ambigüedad, cierre con lista | Skills y plantilla de `CLAUDE.md` |
 | Guardián local | Bloquea antes de ejecutar: secretos, comandos irreversibles, push a la rama principal y rutas protegidas | Hooks del plugin + `.claude/harness.json` |
 | Barrera final | Nada llega a la rama principal sin PR y sin la CI en verde | Protección de rama en GitHub + CI (las configura una persona) |
+| Visto bueno humano | Una persona mira la preview y aprueba y mezcla la PR en GitHub. El agente nunca mezcla ni aprueba, tampoco con merge automático | Guardián (bloquea `gh pr merge` y `gh pr review --approve`) + GitHub |
 
-El guardián analiza texto y un comando muy retorcido podría escaparse. La barrera final no depende del agente.
+El guardián analiza texto y un comando muy retorcido podría escaparse. La barrera final no depende del agente. Las
+comprobaciones solo ven lo que tiene tests: si el resultado es lo que se pidió, solo lo ve una persona en la preview.
 
 ## Contenido
 
 | Pieza | Para qué |
 |---|---|
 | skill `iniciar-sesion` | Lee la bitácora y el plan, comprueba la rama y la verificación, y propone el siguiente paso |
-| skill `pedir-cambio` | Flujo para quien no programa: petición en lenguaje llano → ficha → rama → verificación → PR con merge automático |
+| skill `pedir-cambio` | Flujo para quien no programa: petición en lenguaje llano → ficha → rama → verificación → PR que una persona revisa en la preview y mezcla en GitHub |
 | skill `cerrar-paso` | Lista de cierre: verificación, archivos cambiados, instrucciones, bitácora y publicación |
 | skill `reflect` (`/reflect`) | Reflexión crítica sobre el trabajo del turno |
 | skill `revisar` + agente `revisor` | Revisión en solo lectura frente al plan y a las reglas; informe en `docs/revisiones/` |
@@ -73,8 +75,11 @@ Siempre:
   `.github/workflows/`) y las `protectedPaths` del proyecto, salvo en modo mantenimiento.
 
 Según `commitPolicy`:
-- `persona` (por defecto): el agente no hace `commit`, `push` ni `gh pr merge`. Así trabaja el TFM.
-- `rama`: commit y push solo fuera de la rama principal; `gh pr merge` solo con `--auto` y sin `--admin`.
+- `persona` (por defecto): el agente no hace `commit` ni `push`. Así trabaja el TFM.
+- `rama`: commit y push solo fuera de la rama principal, y abre la PR.
+
+En las dos, `gh pr merge` (también con `--auto`) y `gh pr review --approve` están bloqueados: las PRs las aprueba y
+las mezcla una persona en GitHub.
 
 ## Configuración por proyecto: `.claude/harness.json`
 

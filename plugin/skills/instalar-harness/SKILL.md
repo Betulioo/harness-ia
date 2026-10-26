@@ -17,7 +17,7 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
 2. Pregunta lo que no puedas deducir del repositorio, todo en un solo mensaje:
    - Rama principal y comando de verificación. Si no existe un comando único, propón crearlo en el paso 3.
    - Política de commits: `persona` (el agente nunca hace commit; para equipos técnicos) o `rama` (el agente
-     publica en ramas con PR y merge automático; para gente que no programa).
+     publica en ramas y abre la PR, que aprueba y mezcla una persona en GitHub; para gente que no programa).
    - Rutas protegidas, herramientas y comandos bloqueados: parte de la sección 5 de la auditoría.
    - A quién avisar cuando el harness bloquea algo.
    - Quién usará el agente: el nombre corto de cada persona (`HARNESS_PERSONA`) y si programa o no.
@@ -58,7 +58,9 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
 
 - En GitHub, **Settings → Branches/Rules** de la rama principal: exigir PR, exigir que pase la CI (`verify`),
   prohibir el push directo y el force-push, y no permitir que los administradores se lo salten.
-- **Settings → General → Allow auto-merge**, para que `gh pr merge --auto` funcione con la política `rama`.
+- **No** actives *Settings → General → Allow auto-merge*: las PRs las aprueba y las mezcla una persona en GitHub
+  después de mirar la preview (el guardián impide al agente mezclar o aprobar). Decide en el ruleset cuántas
+  aprobaciones hacen falta; GitHub no deja que quien abrió la PR la apruebe.
 - Si hay despliegue automático: que las previews no usen secretos ni datos de producción.
 - Dar acceso a quien vaya a usar el agente: rol de escritura, no de administrador.
 - Preparar el equipo de cada persona: sección "Preparar el equipo de una persona" del README del plugin.

@@ -65,8 +65,10 @@ comprueban (lint, test de arquitectura).}}
 Las protecciones las aplica el plugin `harness-ia` con `.claude/harness.json` (política de commits: **{{persona|rama}}**):
 - No se leen ni se cargan `.env*` (salvo `.env.example`). Si hace falta un valor, lo pega la persona.
 - No se descartan cambios ni se reescribe el historial (`checkout`, `restore`, `reset --hard`, `rebase`, force-push).
-- {{Con "rama": los cambios se publican en una rama de trabajo con PR y merge automático; nada llega a
-  {{rama principal}} sin la CI en verde. / Con "persona": no hagas commit ni push; los hace la persona.}}
+- {{Con "rama": los cambios van a una rama de trabajo con PR; nada llega a {{rama principal}} sin la CI en verde.
+  / Con "persona": no hagas commit ni push; los hace la persona.}}
+- Nunca mezcles ni apruebes una PR (tampoco con merge automático): lo hace una persona en GitHub después de mirar la
+  preview. El harness lo bloquea.
 - Rutas protegidas, que solo cambia alguien técnico: {{lista de protectedPaths y su porqué}}.
 - {{Reglas propias del proyecto. Para cada una, di si la comprueba una herramienta o depende de la persona.}}
 

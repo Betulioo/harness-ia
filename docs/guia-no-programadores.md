@@ -12,19 +12,21 @@ pantalla, para y avisa a la persona técnica de tu proyecto.
 
 **Claude** es el asistente al que le pides los cambios: "quiero que la tabla de clasificación muestre también los
 puntos", "cambia el texto del botón de entrar". Él busca dónde está eso en la aplicación, lo cambia, lo comprueba y
-lo deja listo para publicar.
+lo deja listo para que una persona lo revise y lo publique.
 
 **El harness** (un "arnés", como el de escalada) es lo que hemos añadido a Claude para que no pueda romper nada.
-Tiene tres partes:
+Tiene cuatro partes:
 
 | Parte | Qué hace por ti |
 |---|---|
-| **El guardián** | Impide a Claude hacer cosas peligrosas: borrar trabajo, ver contraseñas, publicar sin comprobar o tocar la base de datos. Si lo intenta, se bloquea y te explica por qué |
-| **Las comprobaciones automáticas** | Antes de dar algo por terminado, se ejecutan unas pruebas que confirman que la aplicación sigue funcionando. Si fallan, el cambio no se publica |
+| **El guardián** | Impide a Claude hacer cosas peligrosas: borrar trabajo, ver contraseñas, publicar o tocar la base de datos. Si lo intenta, se bloquea y te explica por qué |
+| **Las comprobaciones automáticas** | Con cada cambio se ejecutan unas pruebas que confirman que la aplicación sigue funcionando. Si fallan, no se puede publicar |
+| **Tu visto bueno** | Claude nunca publica. Una persona mira el cambio en una versión de prueba (la *preview*) y, si es lo que se pidió, lo publica desde GitHub (sección 4) |
 | **La bitácora** | Un cuaderno donde Claude apunta en qué estás, qué decidiste y qué sigue. Así, cuando vuelvas otro día, retoma donde lo dejaste |
 
-**Lo importante:** tú dices **qué** quieres. Claude se encarga del **cómo**, y el harness vigila que lo haga sin
-romper nada. No tienes que leer código ni entender errores técnicos.
+**Lo importante:** tú dices **qué** quieres. Claude se encarga del **cómo**; las comprobaciones vigilan que no se
+rompa nada, y una persona mira que el resultado sea el que se pidió. No tienes que leer código ni entender errores
+técnicos.
 
 ---
 
@@ -219,8 +221,27 @@ Claude no empieza a cambiar nada todavía. Primero te responde con una **ficha**
 **Léela con calma.** Si algo no es lo que querías, díselo antes de confirmar: es el momento más barato para
 corregir. Si es grande, te propondrá partirlo en cambios pequeños.
 
-Cuando confirmes, Claude hace el cambio en una rama, ejecuta las comprobaciones, abre la PR y te da su enlace. Si
-las comprobaciones pasan, **el cambio se publica solo**. Si fallan, no se publica y Claude te avisa.
+Cuando confirmes, Claude hace el cambio en una rama, ejecuta las comprobaciones, abre la PR y te da su enlace.
+**Nada se publica todavía**: Claude no puede publicar, aunque se lo pidas. Eso lo decide una persona en GitHub.
+
+### Revisar y publicar
+
+Normalmente lo haces tú mismo con tus cambios: eres quien sabe si el resultado es lo que pediste. Si en tu proyecto
+lo aprueba otra persona, mándale el enlace de la PR.
+
+1. Abre el enlace de la PR que te dio Claude. Se abre en GitHub.
+2. **Mira la preview.** Unos minutos después de abrirse la PR, aparece en ella un comentario con el enlace a la
+   versión de prueba (en muchos proyectos lo pone Vercel, con un botón *Visit Preview*). Ábrelo y comprueba que
+   ves lo que pediste, en la pantalla que decía la ficha.
+3. **Mira las comprobaciones**, abajo en la PR. Tienen que estar en verde (✓). Si están en rojo (✗), no se puede
+   publicar: díselo a Claude y lo arreglará en la misma PR.
+4. Si algo no es como querías, **no publiques**: vuelve a Claude y díselo ("el gris es demasiado claro"). Cambia la
+   misma PR, y la preview se actualiza sola en unos minutos.
+5. Si todo está bien, pulsa el botón verde **Merge pull request** y luego **Confirm merge**. En unos minutos el cambio
+   está publicado en la aplicación de verdad.
+
+Si tu proyecto exige una **aprobación** antes de publicar, la tiene que dar otra persona: GitHub no deja que quien
+abrió la PR la apruebe.
 
 ### Terminar
 

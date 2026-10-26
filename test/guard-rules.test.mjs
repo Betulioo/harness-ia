@@ -152,11 +152,26 @@ describe("Hooks de git: se pueden consultar, no cambiar", () => {
   });
 });
 
-describe("GitHub: solo merge automático y API de lectura", () => {
-  it("bloquea merge sin --auto, con --admin y escrituras con gh api", () => {
+describe("GitHub: las PRs las aprueba y mezcla una persona", () => {
+  it("bloquea cualquier merge de PR, también el automático, en las dos políticas", () => {
+    const commands = ["gh pr merge 12 --squash", "gh pr merge 12 --auto --squash", "gh pr merge 12 --auto --admin", "gh pr merge"];
+
+    assertBlocked(commands, buildContext({ commitPolicy: "rama" }));
+    assertBlocked(commands, buildContext({ commitPolicy: "persona" }));
+  });
+
+  it("bloquea que el agente apruebe una PR", () => {
+    assertBlocked(["gh pr review 12 --approve", "gh pr review 12 -a"]);
+  });
+
+  it("permite abrir PRs, consultar su estado y comentar", () => {
+    assertAllowed(['gh pr create --title "x" --body "y"', "gh pr checks 12", "gh pr view 12", 'gh pr review 12 --comment -b "listo"']);
+  });
+});
+
+describe("GitHub: API y configuración del repositorio, solo lectura", () => {
+  it("bloquea escrituras con gh api y cambios en la configuración del repositorio", () => {
     assertBlocked([
-      "gh pr merge 12 --squash",
-      "gh pr merge 12 --auto --admin",
       "gh api -X DELETE repos/org/repo/branches/main/protection",
       "gh api repos/org/repo/rulesets -f name=x",
       "gh secret set KEY",
@@ -166,8 +181,8 @@ describe("GitHub: solo merge automático y API de lectura", () => {
     ]);
   });
 
-  it("permite abrir PRs, merge automático y lecturas", () => {
-    assertAllowed(['gh pr create --title "x" --body "y"', "gh pr merge 12 --auto --squash", "gh api repos/org/repo/branches/main/protection", "gh pr checks 12", "gh secret list"]);
+  it("permite leer la API y listar secretos sin verlos", () => {
+    assertAllowed(["gh api repos/org/repo/branches/main/protection", "gh secret list"]);
   });
 });
 
