@@ -20,4 +20,5 @@ nombre: son de antes de ese formato y no se renombran.
 
 ## Problemas abiertos del proyecto
 
-- Sin comprobar en sesión real que el hook salte con herramientas MCP y `PowerShell` (con Bash, sí).
+- Sin comprobar en sesión real que el hook salte con herramientas MCP. Con Bash y con `PowerShell`, sí (26/10:
+  bloqueó `git commit` en moneyball-web desde PowerShell).
