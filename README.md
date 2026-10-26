@@ -141,7 +141,10 @@ mensajes de bloqueo del guardián también la muestran en la ruta (`…\harness-
 
 ## Preparar el equipo de una persona
 
-Lo hace alguien técnico, una vez por persona y equipo. Sin esto, el plugin no protege nada en ese equipo.
+Lo hace alguien técnico, una vez por persona y equipo. Sin esto, el plugin no protege nada en ese equipo. Para quien
+no programa y lo hace con ayuda, la misma lista paso a paso y sin jerga está en
+[docs/guia-no-programadores.md](docs/guia-no-programadores.md): necesita que le des la dirección del repositorio, la
+identidad de git y su nombre corto.
 
 | Qué | Para qué |
 |---|---|
