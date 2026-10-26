@@ -1,6 +1,6 @@
 ---
 name: revisar
-description: Revisa en solo lectura si lo implementado cumple el plan y las reglas del proyecto, y lista lo que falta con evidencias. Úsala al cerrar un paso del plan, antes de una entrega o cuando se pida "revisar" o "qué me falta". No corrige nada. Para no llenar el contexto, prefiere el agente revisor.
+description: Revisa en solo lectura si lo implementado cumple el plan y las reglas del proyecto, y lista lo que falta con evidencias. Úsala antes de una entrega o cuando se pida "revisar" o "qué me falta"; el cierre de un paso es de cerrar-paso. No corrige nada. Para no llenar el contexto, prefiere el agente revisor.
 ---
 
 # Revisar el proyecto
@@ -44,7 +44,8 @@ Si falta alguna, sigue con lo demás y di al principio del resultado qué archiv
 
 ## Salida
 
-Escribe `docs/revisiones/AAAA-MM-DD.md` (crea la carpeta si no existe) y muestra el resumen en el chat:
+Escribe `docs/revisiones/AAAA-MM-DD.md` (crea la carpeta si no existe) y muestra el resumen en el chat. Si te ejecutas
+como agente `revisor`, no escribes nada: devuelves el informe completo y lo guarda el agente principal.
 
 1. **Resultado de la verificación**, por comprobación.
 2. **Tabla de tests:** archivo · test · qué protege · criterio de `tests-semanticos` que falla · lo que falta.

@@ -71,8 +71,20 @@ Siempre:
 - `gh api` con escritura, `gh secret|variable` (salvo `list`), `gh repo delete|edit|…`, `gh workflow disable`,
   `gh auth token`.
 - Borrados recursivos, salvo de carpetas generadas (`node_modules`, `.next`, `dist`…).
+- Editar los ajustes de Claude Code de la persona (`~/.claude/settings*.json`), también en modo mantenimiento: ahí
+  vive `HARNESS_MAINTENANCE`.
+- Poner o quitar etiquetas (`gh pr edit --add-label|--remove-label`, `gh label …` salvo `list`): algunas autorizan
+  cambios en la CI.
+- Las herramientas que mezclan, aprueban o activan el auto-merge de una PR, vengan de un MCP o de la app.
+
+Salvo en modo mantenimiento:
 - Editar las protecciones del propio harness (`.claude/settings*.json`, `.claude/harness.json`, `.githooks/`,
-  `.github/workflows/`) y las `protectedPaths` del proyecto, salvo en modo mantenimiento.
+  `.github/workflows/`) y las `protectedPaths` del proyecto.
+- `git apply` y `git am`: un parche cambia archivos sin nombrarlos.
+- Si el proyecto protege `package.json` o su lock: `npm pkg set|delete`, `npm install|add|uninstall|update…`
+  (`npm ci` sí se permite).
+
+Si el guardián falla al evaluar una orden, la bloquea.
 
 Según `commitPolicy`:
 - `persona` (por defecto): el agente no hace `commit` ni `push`. Así trabaja el TFM.
@@ -95,11 +107,18 @@ las mezcla una persona en GitHub.
 ```
 
 - `protectedPaths`: rutas relativas a la raíz; si terminan en `/`, toda la carpeta. Se suman a las del harness.
-- `blockedTools`: nombre exacto o prefijo con `*` (`mcp__vercel__*`).
+- `blockedTools`: nombre exacto, prefijo con `*` (`mcp__vercel__*`) o expresión regular entre barras
+  (`/__(apply_migration|execute_sql)$/`). La expresión sirve para los conectores que llegan con un prefijo
+  desconocido, como los añadidos desde claude.ai (`mcp__<uuid>__…`). Se suman a las del harness.
 - `blockedCommands`: expresión regular (sin distinguir mayúsculas) y motivo.
+- Una expresión mal escrita hace que `harness.json` no sea válido, y el guardián bloquea hasta que se corrija.
 
 **Modo mantenimiento:** quien sea técnico arranca Claude con `HARNESS_MAINTENANCE=1` para editar las rutas
-protegidas. Los secretos siguen bloqueados. El agente no puede activarlo desde dentro de la sesión.
+protegidas. Los secretos siguen bloqueados. El agente no puede activarlo desde dentro de la sesión: no puede editar
+`~/.claude/settings.json`.
+
+**Hook de fin de turno:** ejecuta `verifyCommand` si hay cambios sin commitear o commits sin subir (por delante de la
+rama remota o, si no la hay, de la principal). Si git no responde, también verifica.
 
 ## Instalación
 

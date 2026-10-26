@@ -1,10 +1,11 @@
 // Tests de las reglas del guardián: cada test nombra la protección que comprueba (ver README, "Qué bloquea").
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DEFAULT_CONFIG, HARNESS_PATHS } from "../plugin/hooks/config.mjs";
+import { DEFAULT_CONFIG, HARNESS_BLOCKED_TOOLS, HARNESS_PATHS } from "../plugin/hooks/config.mjs";
 import { evaluateToolUse } from "../plugin/hooks/guard-rules.mjs";
 
 const PROJECT_DIR = "/proyecto";
+const HOME_DIR = "/home/persona";
 
 function buildContext({ branch = "cambio/titulo", maintenance = false, ...configOverrides } = {}) {
   return {
@@ -13,8 +14,10 @@ function buildContext({ branch = "cambio/titulo", maintenance = false, ...config
       commitPolicy: "rama",
       ...configOverrides,
       protectedPaths: [...HARNESS_PATHS, ...(configOverrides.protectedPaths ?? [])],
+      blockedTools: [...HARNESS_BLOCKED_TOOLS, ...(configOverrides.blockedTools ?? [])],
     },
     projectDir: PROJECT_DIR,
+    homeDir: HOME_DIR,
     getCurrentBranch: () => branch,
     maintenance,
   };
@@ -167,6 +170,81 @@ describe("GitHub: las PRs las aprueba y mezcla una persona", () => {
   it("permite abrir PRs, consultar su estado y comentar", () => {
     assertAllowed(['gh pr create --title "x" --body "y"', "gh pr checks 12", "gh pr view 12", 'gh pr review 12 --comment -b "listo"']);
   });
+
+  it("bloquea que el agente ponga o quite etiquetas, porque algunas autorizan cambios en la CI", () => {
+    assertBlocked(["gh pr edit 12 --add-label mantenimiento", "gh pr edit 12 --remove-label=mantenimiento", "gh label create mantenimiento", "gh label delete x"]);
+  });
+
+  it("permite editar el título de una PR y listar etiquetas", () => {
+    assertAllowed(['gh pr edit 12 --title "Nuevo título"', "gh label list"]);
+  });
+
+  it("bloquea las herramientas de merge, aprobación y auto-merge de cualquier MCP o de la app", () => {
+    const attempts = ["mcp__github__merge_pull_request", "mcp__ccd_pr__set_auto_merge", "mcp__0a1b2c3d-uuid__enable_auto_merge"];
+
+    const results = attempts.map((toolName) => isBlocked({ tool_name: toolName }));
+
+    assert.deepEqual(results, [true, true, true]);
+  });
+
+  it("permite las herramientas de PR que solo leen o crean", () => {
+    const attempts = ["mcp__github__create_pull_request", "mcp__ccd_pr__get_status"];
+
+    const results = attempts.map((toolName) => isBlocked({ tool_name: toolName }));
+
+    assert.deepEqual(results, [false, false]);
+  });
+});
+
+describe("Ajustes de la persona: el agente no edita ~/.claude/settings.json", () => {
+  it("bloquea editarlos con herramientas de archivo, también en mantenimiento", () => {
+    const attempts = [fileTool("Edit", "/home/persona/.claude/settings.json"), fileTool("Write", "~/.claude/settings.local.json")];
+
+    const results = attempts.map((attempt) => isBlocked(attempt, buildContext({ maintenance: true })));
+
+    assert.deepEqual(results, [true, true]);
+  });
+
+  it("bloquea escribirlos por terminal, también en mantenimiento", () => {
+    assertBlocked(
+      ["echo '{}' > ~/.claude/settings.json", 'node -e "x" > "$HOME/.claude/settings.json"', "Set-Content $env:USERPROFILE\\.claude\\settings.json x"],
+      buildContext({ maintenance: true }),
+    );
+  });
+
+  it("permite leerlos y editar otros archivos de ~/.claude", () => {
+    const attempts = [fileTool("Read", "/home/persona/.claude/settings.json"), fileTool("Write", "/home/persona/.claude/plans/plan.md")];
+
+    const results = attempts.map((attempt) => isBlocked(attempt));
+
+    assert.deepEqual(results, [false, false]);
+    assertAllowed(["cat ~/.claude/settings.json"]);
+  });
+});
+
+describe("El listón de verificación: npm y parches no cambian rutas protegidas sin nombrarlas", () => {
+  const protectsManifest = buildContext({ protectedPaths: ["package.json", "package-lock.json"] });
+
+  it("bloquea reescribir package.json o el lock con npm si están protegidos", () => {
+    assertBlocked(
+      ['npm pkg set scripts.test="node -e 0"', "npm pkg delete scripts.verify", "npm install left-pad", "npm i -D tsx", "npm uninstall tsx", "npm update", "npm install"],
+      protectsManifest,
+    );
+  });
+
+  it("permite npm ci, ejecutar scripts y consultar paquetes", () => {
+    assertAllowed(["npm ci", "npm run verify", "npm test", "npm ls tsx", "npm pkg get scripts", "npx tsc --noEmit"], protectsManifest);
+  });
+
+  it("permite npm install si el proyecto no protege package.json, y en mantenimiento", () => {
+    assertAllowed(["npm install left-pad"]);
+    assertAllowed(["npm pkg set scripts.lint=eslint"], buildContext({ protectedPaths: ["package.json"], maintenance: true }));
+  });
+
+  it("bloquea aplicar parches con git apply o git am fuera del mantenimiento", () => {
+    assertBlocked(["git apply cambio.patch", "git am 0001-x.patch"]);
+    assertAllowed(["git apply cambio.patch"], buildContext({ maintenance: true }));
+  });
 });
 
 describe("GitHub: API y configuración del repositorio, solo lectura", () => {
@@ -241,6 +319,15 @@ describe("Reglas propias del proyecto (.claude/harness.json)", () => {
   it("blockedTools bloquea por nombre exacto o por prefijo con *", () => {
     const context = buildContext({ blockedTools: ["mcp__supabase__apply_migration", "mcp__vercel__*"] });
     const attempts = [{ tool_name: "mcp__supabase__apply_migration" }, { tool_name: "mcp__vercel__deploy" }, { tool_name: "mcp__supabase__list_tables" }];
+
+    const results = attempts.map((attempt) => isBlocked(attempt, context));
+
+    assert.deepEqual(results, [true, true, false]);
+  });
+
+  it("blockedTools bloquea por expresión regular, también conectores con prefijo desconocido", () => {
+    const context = buildContext({ blockedTools: ["/__(apply_migration|execute_sql)$/"] });
+    const attempts = [{ tool_name: "mcp__supabase__execute_sql" }, { tool_name: "mcp__1a59c906-04da__apply_migration" }, { tool_name: "mcp__supabase__list_tables" }];
 
     const results = attempts.map((attempt) => isBlocked(attempt, context));
 

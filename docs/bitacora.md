@@ -16,6 +16,10 @@ nombre: son de antes de ese formato y no se renombran.
 - [x] 0.3.0 (publicada): bitácora por personas (`HARNESS_PERSONA`), `iniciar-sesion` no se detiene sin
   `harness.json`, README con "Preparar el equipo de una persona" y guía para quien no programa
 - [x] 0.4.0 (sin commit): ningún merge automático; una persona aprueba y mezcla la PR en GitHub tras ver la preview
+- [x] 0.5.0 (rama `cambio/auditoria-0.5.0`, sin commit): lo que salió de `pape:harness-audit` en moneyball-web. El
+  guardián bloquea `npm pkg|install…` y `git apply|am`, etiquetas, auto-merge por herramienta, la edición de
+  `~/.claude/settings*.json` y cualquier error al evaluar; `blockedTools` acepta expresiones; el fin de turno verifica
+  los commits sin subir; el revisor ya no escribe
 - [ ] Piloto en moneyball-web: en curso, con su propia bitácora
 - [ ] Probar en la app de escritorio la activación por `.claude/settings.json` del proyecto (opción sin comandos)
 

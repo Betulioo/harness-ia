@@ -3,8 +3,10 @@
 //
 // Los motivos se escriben para que el agente pueda explicárselos a alguien que no programa.
 // Esto es un cinturón de seguridad, no la barrera final: un comando muy retorcido puede escaparse de un análisis
-// por texto. La barrera final es la protección de la rama principal en GitHub con la CI obligatoria.
+// por texto. La barrera final es la CI en GitHub: obligatoria donde el plan permite proteger la rama principal y, donde
+// no, comprobada por la persona que mezcla.
 import path from "node:path";
+import { toolMatcher } from "./config.mjs";
 
 const ALLOWED = Object.freeze({ blocked: false });
 const blocked = (reason) => ({ blocked: true, reason });
@@ -22,6 +24,16 @@ const WRITE_INDICATOR =
   /(>|\btee\b|\bsed\s+-i|\brm\b|\bmv\b|\bcp\b|\bperl\s+-[pi]|\bpython3?\b|\bnode\s+-e|Set-Content|Add-Content|Out-File|Remove-Item|Move-Item|Copy-Item|New-Item)/i;
 // Redirecciones que no escriben archivos: 2>&1, >/dev/null, > $null, >NUL.
 const HARMLESS_REDIRECTIONS = /\d*>&\d+|\d*>\s*(\/dev\/null|\$null|NUL)\b/gi;
+// Ajustes de Claude Code de la persona (~/.claude/settings*.json): ahí viven HARNESS_MAINTENANCE y sus permisos.
+const USER_SETTINGS_FILES = new Set(["settings.json", "settings.local.json"]);
+const USER_SETTINGS_IN_COMMAND =
+  /(~|\$home|\$\{home\}|\$env:userprofile|%userprofile%|\/users\/[^/\s]+|\/home\/[^/\s]+)\/\.claude\/settings(\.local)?\.json/i;
+// Subcomandos de npm que reescriben package.json o el lock. `npm ci` instala lo que ya hay y queda permitido.
+const NPM_MANIFEST_SUBCOMMANDS = new Set([
+  "pkg", "install", "i", "add", "uninstall", "un", "remove", "rm", "r", "update", "up", "upgrade", "dedupe", "link",
+  "init",
+]);
+const MANIFEST_FILES = ["package.json", "package-lock.json"];
 
 const PUSH_FORBIDDEN_FLAGS = new Set([
   "-f", "--force", "--force-if-includes", "--mirror", "--delete", "-d", "--all", "--prune", "--no-verify",
@@ -40,7 +52,7 @@ export function evaluateToolUse(hookInput, context) {
   const toolInput = hookInput.tool_input ?? {};
 
   if (matchesAny(toolName, context.config.blockedTools)) {
-    return blocked(`la herramienta ${toolName} está prohibida en este proyecto (blockedTools en .claude/harness.json).`);
+    return blocked(`la herramienta ${toolName} está prohibida: mezcla o aprueba PRs, o la prohíbe este proyecto (blockedTools en .claude/harness.json).`);
   }
   if (SHELL_TOOLS.has(toolName)) return evaluateCommand(String(toolInput.command ?? ""), context);
   if (READ_TOOLS.has(toolName) || WRITE_TOOLS.has(toolName)) return evaluateFileTool(toolName, toolInput, context);
@@ -55,6 +67,10 @@ function evaluateFileTool(toolName, toolInput, context) {
     if (isSecretFile(filePath)) {
       return blocked(`${filePath} guarda credenciales y el agente no puede abrirlo. Si hace falta un valor, que lo pegue la persona.`);
     }
+    // También en mantenimiento: si el agente pudiera escribir aquí, podría activar el mantenimiento él mismo.
+    if (WRITE_TOOLS.has(toolName) && isUserSettingsFile(filePath, context)) {
+      return blocked(`${filePath} son los ajustes de Claude Code de la persona: los cambia ella, no el agente.`);
+    }
     if (WRITE_TOOLS.has(toolName) && !context.maintenance && isProtectedPath(filePath, context)) {
       return blocked(`${filePath} forma parte de las protecciones del proyecto y solo lo cambia alguien técnico.`);
     }
@@ -65,6 +81,13 @@ function evaluateFileTool(toolName, toolInput, context) {
 function isSecretFile(filePath) {
   const fileName = toForwardSlashes(filePath).split("/").pop() ?? "";
   return fileName === ".env" || (fileName.startsWith(".env.") && fileName !== ENV_EXAMPLE);
+}
+
+function isUserSettingsFile(filePath, context) {
+  if (!context.homeDir) return false;
+  const expandedPath = filePath.replace(/^~(?=$|[\\/])/, context.homeDir);
+  const relativePath = toForwardSlashes(path.relative(path.join(context.homeDir, ".claude"), path.resolve(expandedPath)));
+  return USER_SETTINGS_FILES.has(relativePath.toLowerCase());
 }
 
 function isProtectedPath(filePath, context) {
@@ -80,12 +103,12 @@ function isProtectedPath(filePath, context) {
 // ---------- Comandos de terminal ----------
 
 function evaluateCommand(command, context) {
-  const wholeCommandChecks = [checkSecretFiles, checkProtectedPathsInCommand, checkConfiguredCommands];
+  const wholeCommandChecks = [checkSecretFiles, checkUserSettingsInCommand, checkProtectedPathsInCommand, checkConfiguredCommands];
   for (const check of wholeCommandChecks) {
     const verdict = check(command, context);
     if (verdict.blocked) return verdict;
   }
-  const segmentChecks = [checkDestructiveDelete, checkGit, checkGitHubCli];
+  const segmentChecks = [checkDestructiveDelete, checkGit, checkGitHubCli, checkPackageManifest];
   for (const segment of splitSegments(command)) {
     for (const check of segmentChecks) {
       const verdict = check(segment, context);
@@ -127,6 +150,16 @@ function checkSecretFiles(command) {
     if (mention[1] !== ENV_EXAMPLE) {
       return blocked(`el comando usa ${mention[1]}, que guarda credenciales. El agente no puede leerlo ni cargarlo.`);
     }
+  }
+  return ALLOWED;
+}
+
+function checkUserSettingsInCommand(command, context) {
+  const normalized = toForwardSlashes(command);
+  const homeSettings = context.homeDir ? `${toForwardSlashes(context.homeDir)}/.claude/settings`.toLowerCase() : undefined;
+  const mentionsSettings = USER_SETTINGS_IN_COMMAND.test(normalized) || (homeSettings && normalized.toLowerCase().includes(homeSettings));
+  if (mentionsSettings && WRITE_INDICATOR.test(command.replace(HARMLESS_REDIRECTIONS, ""))) {
+    return blocked("el comando parece modificar los ajustes de Claude Code de la persona (~/.claude/settings.json): los cambia ella, no el agente.");
   }
   return ALLOWED;
 }
@@ -205,6 +238,12 @@ function checkGit(segment, context) {
       return ["drop", "clear"].includes(args[0] ?? "") ? blocked("borrar cambios guardados con stash no se puede deshacer.") : ALLOWED;
     case "config":
       return writesHooksPath(args) ? blocked("no se pueden cambiar los hooks de git.") : ALLOWED;
+    case "apply":
+    case "am":
+      // Un parche cambia archivos sin nombrarlos en el comando, también los protegidos.
+      return context.maintenance
+        ? ALLOWED
+        : blocked(`git ${subcommand} aplica un parche que puede cambiar archivos protegidos sin que se vea. Edita los archivos uno a uno.`);
     case "commit":
       return checkCommit(args, context);
     case "push":
@@ -286,6 +325,11 @@ function checkGitHubCli(segment, context) {
   if (group === "pr" && action === "review" && args.some((arg) => arg === "--approve" || arg === "-a")) {
     return blocked("aprobar una PR le toca a una persona en GitHub, no al agente.");
   }
+  // Las etiquetas pueden autorizar algo en la CI (p. ej. tocar rutas protegidas): las pone una persona.
+  if (group === "label" && action !== "list") return blocked(`gh label ${action} cambia las etiquetas del repositorio en GitHub.`);
+  if (group === "pr" && action === "edit" && args.some((arg) => /^--(add|remove)-label/.test(arg))) {
+    return blocked("las etiquetas de una PR las pone o las quita una persona en GitHub: algunas autorizan cambios en la CI.");
+  }
   if (group === "api" && apiMethod(invocation.args) !== "GET") {
     return blocked("con `gh api` solo se permite leer (GET): escribir podría cambiar la configuración del repositorio.");
   }
@@ -302,6 +346,20 @@ function checkGitHubCli(segment, context) {
   return ALLOWED;
 }
 
+// ---------- npm ----------
+
+/** Si el proyecto protege package.json o su lock, el agente no los reescribe con npm aunque no los nombre. */
+function checkPackageManifest(segment, context) {
+  if (context.maintenance) return ALLOWED;
+  const protectsManifest = context.config.protectedPaths.some((protectedPath) => MANIFEST_FILES.includes(protectedPath.toLowerCase()));
+  if (!protectsManifest) return ALLOWED;
+  const invocation = findInvocation(segment, "npm");
+  const [subcommand = "", pkgAction = ""] = invocation?.args.filter((arg) => !arg.startsWith("-")) ?? [];
+  if (!NPM_MANIFEST_SUBCOMMANDS.has(subcommand.toLowerCase())) return ALLOWED;
+  if (subcommand === "pkg" && pkgAction === "get") return ALLOWED;
+  return blocked(`npm ${subcommand} cambia package.json o su lock, que son rutas protegidas. Para instalar lo que ya está en el lock, usa \`npm ci\`; añadir, quitar o actualizar dependencias lo hace alguien técnico.`);
+}
+
 function apiMethod(args) {
   const methodIndex = args.findIndex((arg) => arg === "-X" || arg === "--method");
   if (methodIndex >= 0) return (args[methodIndex + 1] ?? "").toUpperCase();
@@ -313,9 +371,8 @@ function apiMethod(args) {
 
 // ---------- utilidades ----------
 
-/** Nombre exacto o prefijo terminado en `*` (p. ej. `mcp__supabase__*`). */
 function matchesAny(name, patterns) {
-  return patterns.some((pattern) => (pattern.endsWith("*") ? name.startsWith(pattern.slice(0, -1)) : name === pattern));
+  return patterns.some((pattern) => toolMatcher(pattern)(name));
 }
 
 function toForwardSlashes(text) {
