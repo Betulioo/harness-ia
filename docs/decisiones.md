@@ -3,7 +3,8 @@
 Índice de las decisiones importantes, una por línea y la más reciente arriba. El detalle (qué se descartó y por qué)
 está en la entrada del registro enlazada. Formato en [bitacora.md](bitacora.md#cómo-se-escribe-esta-bitácora).
 
-- 2026-10-24 · moneyball-web: tests con tsx + node:test y test de descubrimiento · mismo método que el TFM; con cero tests el runner da verde · [entrada](registro/2026-10-24-main.md)
+- 2026-10-26 · luis · Repo del plugin público · instalarlo no exige dar acceso a cada persona · [entrada](registro/2026-10-26-luis-main.md)
+- 2026-10-26 · luis · Bitácora por personas con `HARNESS_PERSONA`; el estado de cada proyecto, en su repo · una sesión en el proyecto no encontraba el estado; varias personas a la vez · [entrada](registro/2026-10-26-luis-main.md)
 - 2026-10-24 · `auditar-repo` con verificador independiente y confianza separada del riesgo · quien escribe un hallazgo no debe ser el único que lo comprueba · [entrada](registro/2026-10-24-main.md)
 - 2026-10-24 · La configuración del agente la audita `pape:harness-audit`; `auditar-repo`, la aplicación y sus datos · pape lo hace con más rigor; no duplicar · [entrada](registro/2026-10-24-main.md)
 - 2026-10-24 · Bitácora en tres archivos (foto vigente, registro por sesión y rama, índice de decisiones) · no crece sin límite ni choca entre ramas · [entrada](registro/2026-10-24-master.md)

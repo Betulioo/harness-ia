@@ -29,12 +29,25 @@ El guardián analiza texto y un comando muy retorcido podría escaparse. La barr
 | skill `tests-semanticos` | Qué debe comprobar un test para que proteja algo |
 | skill `auditar-repo` | Auditoría en solo lectura de un repo heredado: despliegue, datos, secretos, dependencias y comprobaciones mínimas, con un subagente que intenta refutar cada hallazgo. Informe en `docs/auditoria-AAAA-MM-DD.md`. La configuración del agente no: eso es [`pape:harness-audit`](#auditorías-cuál-usar) |
 | skill `instalar-harness` | Copia y adapta las plantillas (`CLAUDE.md`, bitácora, `harness.json`, settings, pre-push y CI) |
-
-La bitácora se reparte en tres archivos para que no crezca sin límite ni choque entre ramas: `docs/bitacora.md`
-(foto vigente, corta, se reemplaza), `docs/registro/AAAA-MM-DD-<rama>.md` (una entrada por sesión y rama) y
-`docs/decisiones.md` (índice de una línea por decisión). Formato en la plantilla `bitacora.md`.
 | hook `PreToolUse` (`guard.mjs`) | Bloquea con un motivo en lenguaje llano (ver "Qué bloquea") |
 | hook `Stop` (`verify-on-stop.mjs`) | Si hay cambios sin commitear, ejecuta el `verifyCommand` antes de que el agente termine; si falla, le obliga a corregir o explicar |
+
+## Bitácora: en el repo del proyecto, por personas
+
+El plugin trae el método; el estado de cada proyecto vive **en el repo de ese proyecto**, para que cualquier
+sesión abierta allí lo encuentre:
+
+```
+docs/
+  bitacora.md              foto común: Estado del plan y Problemas abiertos del proyecto
+  bitacora/<persona>.md    foto de cada persona: en curso, próximo paso y sus problemas
+  registro/AAAA-MM-DD-<persona>-<rama>.md   historial: una entrada por sesión, persona y rama
+  decisiones.md            índice común de decisiones
+```
+
+Cada persona solo escribe en lo suyo, así que dos personas en ramas distintas no chocan. La sesión sabe quién es
+quién por la variable `HARNESS_PERSONA` (ver "Preparar el equipo de una persona"); si falta, pregunta. Formato
+completo en la plantilla `plugin/skills/instalar-harness/plantillas/bitacora.md`.
 
 ## Auditorías: cuál usar
 
@@ -103,8 +116,29 @@ Para probar cambios sin publicarlos, el marketplace también se puede añadir de
 
 En un proyecto, su `.claude/settings.json` lo activa para todo el equipo (plantilla en
 `plugin/skills/instalar-harness/plantillas/settings.json`): cada persona solo tiene que aceptar el plugin al abrir
-Claude Code en el repo. Si el repositorio del plugin es privado, cada persona necesita acceso de lectura a él.
+Claude Code en el repo. El repositorio del plugin es público, así que no hace falta darle acceso a nadie.
 Después, en el proyecto: `auditar-repo` → `instalar-harness` → pasos manuales en GitHub que lista esa skill.
+
+## Preparar el equipo de una persona
+
+Lo hace alguien técnico, una vez por persona y equipo. Sin esto, el plugin no protege nada en ese equipo.
+
+| Qué | Para qué |
+|---|---|
+| App de Claude, `git` y **Node ≥ 20.19** | Los hooks son scripts de Node: sin Node no se ejecutan y no bloquean nada |
+| El repo del proyecto clonado y sus dependencias instaladas (`npm ci`) | Para que la verificación funcione |
+| La identidad de git que exija el proyecto, en el clon (`git config user.name` / `user.email`) | Algunos despliegues solo publican commits de una identidad; el agente no debe cambiarla |
+| `gh` instalado y con sesión iniciada | Con la política `rama`, el agente abre las PRs con `gh` |
+| `HARNESS_PERSONA` en `~/.claude/settings.json`: `{ "env": { "HARNESS_PERSONA": "rafa" } }` | La bitácora sabe quién es (su archivo y sus entradas del registro) |
+
+Al terminar, comprueba en ese equipo que el guardián funciona: abre el proyecto en Claude, acepta el plugin y pide
+leer `.env` y hacer `git push origin main`. Los dos deben quedar bloqueados.
+
+El día a día de quien no programa: abrir la carpeta del proyecto en Claude, escribir "iniciar sesión" y pedir los
+cambios en lenguaje normal (skill `pedir-cambio`).
+
+El guardián vive en cada equipo: si alguien desactiva el plugin, deja de bloquear. La barrera que no depende del
+equipo es la protección de la rama principal en GitHub con la CI obligatoria.
 
 ## Desarrollo
 

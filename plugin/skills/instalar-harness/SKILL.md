@@ -20,7 +20,7 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
      publica en ramas con PR y merge automático; para gente que no programa).
    - Rutas protegidas, herramientas y comandos bloqueados: parte de la sección 5 de la auditoría.
    - A quién avisar cuando el harness bloquea algo.
-   - Si la persona que usará el agente programa o no.
+   - Quién usará el agente: el nombre corto de cada persona (`HARNESS_PERSONA`) y si programa o no.
 3. Presenta la lista de archivos que vas a crear o cambiar y espera a que confirme.
 
 ## 2. Copiar y adaptar
@@ -29,8 +29,9 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
 |---|---|---|
 | `CLAUDE.md` | `CLAUDE.md` | No lo sustituyas: propón añadir las secciones que falten y conserva las reglas del proyecto |
 | `bitacora.md` | `docs/bitacora.md` | Propón migrarla: la foto vigente se queda, cada fecha del historial pasa a una entrada de `docs/registro/` y las decisiones al índice. No la migres sin confirmación |
+| `bitacora-persona.md` | `docs/bitacora/<persona>.md`, uno por cada persona que use el agente | — |
 | `decisiones.md` | `docs/decisiones.md` | Mezcla las líneas |
-| `registro-entrada.md` | `docs/registro/AAAA-MM-DD-<rama>.md` (la primera entrada) | — |
+| `registro-entrada.md` | `docs/registro/AAAA-MM-DD-<persona>-<rama>.md` (la primera entrada) | — |
 | `harness.json` | `.claude/harness.json` | Mezcla los valores |
 | `settings.json` | `.claude/settings.json` | Mezcla `permissions.deny` y `enabledPlugins` sin quitar nada |
 | `pre-push` | `.githooks/pre-push` | Compara y pregunta |
@@ -51,7 +52,7 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
    `verifyCommand` sea lo que ejecuta la CI, que ningún hook falle abierto, que las reglas escritas tengan algo que
    las aplique). Si el plugin `pape` no está instalado, dilo.
 4. Escribe la primera entrada del registro (qué se instaló, con qué política y qué queda pendiente), su línea en
-   `docs/decisiones.md` y el Estado y Próximo paso de `docs/bitacora.md`.
+   `docs/decisiones.md`, el Estado de `docs/bitacora.md` y el Próximo paso en el archivo de cada persona.
 
 ## 4. Lo que el agente no puede hacer (dáselo a la persona como lista)
 
@@ -60,3 +61,4 @@ Las plantillas están en la carpeta `plantillas/` junto a esta skill.
 - **Settings → General → Allow auto-merge**, para que `gh pr merge --auto` funcione con la política `rama`.
 - Si hay despliegue automático: que las previews no usen secretos ni datos de producción.
 - Dar acceso a quien vaya a usar el agente: rol de escritura, no de administrador.
+- Preparar el equipo de cada persona: sección "Preparar el equipo de una persona" del README del plugin.

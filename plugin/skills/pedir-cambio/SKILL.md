@@ -51,5 +51,5 @@ El mensaje final para la persona:
 ## Si algo se bloquea
 
 Si un hook del harness o la CI bloquean algo, **no busques otro camino**. Cuéntale a la persona en una frase qué
-intentabas, que el sistema lo ha impedido para proteger la aplicación y qué opciones hay. Apúntalo en la bitácora
-(Problemas abiertos) para que alguien técnico lo revise.
+intentabas, que el sistema lo ha impedido para proteger la aplicación y qué opciones hay. Apúntalo en su bitácora
+(`docs/bitacora/<persona>.md`, Problemas abiertos) para que alguien técnico lo revise.

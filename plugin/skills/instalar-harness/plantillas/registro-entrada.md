@@ -1,4 +1,4 @@
-# {{AAAA-MM-DD}} · {{rama}}
+# {{AAAA-MM-DD}} · {{persona}} · {{rama}}
 
 {{Una línea: qué se hizo en esta sesión y para qué paso del plan.}}
 

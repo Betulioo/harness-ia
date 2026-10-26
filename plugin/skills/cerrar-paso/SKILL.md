@@ -14,11 +14,14 @@ Nada está terminado hasta completar esta lista. Lee `.claude/harness.json` para
    revísalo y avisa.
 3. **Instrucciones.** Relee lo que pidió la persona en este turno y comprueba cada punto; di cuál queda pendiente y
    por qué. Si dio una instrucción que debe mantenerse, propón añadirla al `CLAUDE.md`; no la añadas sin confirmación.
-4. **Bitácora.** Según el formato de `docs/bitacora.md` ("Cómo se escribe esta bitácora"):
-   - La entrada de esta sesión en `docs/registro/AAAA-MM-DD-<rama>.md` (créala o añade a la de hoy en esta rama).
+4. **Bitácora.** Según el formato de `docs/bitacora.md` ("Cómo se escribe esta bitácora"), con la persona de la
+   sesión (`HARNESS_PERSONA`, o la que dijo en `iniciar-sesion`):
+   - La entrada de esta sesión en `docs/registro/AAAA-MM-DD-<persona>-<rama>.md` (créala o añade a la de hoy).
    - Cada decisión importante, también como una línea en `docs/decisiones.md`.
-   - En `docs/bitacora.md`, reemplaza Estado, Próximo paso y Problemas abiertos; el Próximo paso, al terminar y no
-     al empezar. Si pasa de los máximos del formato, resume y deja el detalle en la entrada.
+   - En `docs/bitacora/<persona>.md` (créalo desde la plantilla si no existe), reemplaza En curso, Próximo paso y
+     Problemas abiertos; el Próximo paso, al terminar y no al empezar. No toques el archivo de otra persona.
+   - En `docs/bitacora.md`, solo si avanzó un paso del plan común o hay un problema que afecta a todos.
+   - Si algo pasa de los máximos del formato, resume y deja el detalle en la entrada.
    - Comprueba que el Estado y el README siguen siendo ciertos.
 5. **Publicar** (solo si `commitPolicy` es `rama`; con `persona` deja los cambios sin commitear):
    1. Si estás en la rama principal, crea una rama: `git switch -c cambio/<descripcion-corta>`.

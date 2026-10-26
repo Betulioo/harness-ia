@@ -16,8 +16,8 @@ Si falta alguna, sigue con lo demás y di al principio del resultado qué archiv
   fuentes de esta revisión (requisitos, glosario, casos esperados…).
 - `.claude/harness.json` — verificación, política de commits y rutas protegidas.
 - `docs/plan.md` — diseño y criterio de "hecho" de cada paso.
-- `docs/bitacora.md` — estado declarado; `docs/decisiones.md` — decisiones (el detalle, en la entrada de
-  `docs/registro/` que enlaza cada una).
+- `docs/bitacora.md` y `docs/bitacora/*.md` — estado declarado, común y de cada persona; `docs/decisiones.md` —
+  decisiones (el detalle, en la entrada de `docs/registro/` que enlaza cada una).
 - El código y los tests.
 
 ## Comprobaciones
@@ -32,7 +32,8 @@ Si falta alguna, sigue con lo demás y di al principio del resultado qué archiv
    agente? Las que no se comprueban y se podrían comprobar son hallazgos.
 5. Secretos y datos: ningún token en archivos versionados ni en la salida de los scripts; `.env*` fuera de git.
 6. ¿La bitácora refleja el estado real? (pasos marcados sin hacer, decisiones sin registrar o sin línea en
-   `decisiones.md`, `bitacora.md` por encima de los máximos del formato)
+   `decisiones.md`, archivos por encima de los máximos del formato, trabajo "en curso" de una persona que el
+   registro da por terminado)
 
 ## Reglas de la revisión
 

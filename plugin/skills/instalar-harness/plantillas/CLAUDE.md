@@ -50,8 +50,9 @@ estaban), para y pregunta antes de seguir, con lo que cambia y por qué. Avisar 
 
 ### Bitácora
 
-Tres archivos: `docs/bitacora.md` (la foto vigente, corta), `docs/registro/` (una entrada por sesión y rama) y
-`docs/decisiones.md` (índice de decisiones). El formato y sus reglas están en un solo sitio:
+`docs/bitacora.md` (foto común del proyecto), `docs/bitacora/<persona>.md` (en qué está y qué sigue cada persona,
+según `HARNESS_PERSONA`), `docs/registro/` (una entrada por sesión, persona y rama) y `docs/decisiones.md` (índice
+de decisiones). El formato y sus reglas están en un solo sitio:
 [Cómo se escribe esta bitácora](docs/bitacora.md#cómo-se-escribe-esta-bitácora).
 
 ## Arquitectura
