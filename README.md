@@ -119,6 +119,26 @@ En un proyecto, su `.claude/settings.json` lo activa para todo el equipo (planti
 Claude Code en el repo. El repositorio del plugin es público, así que no hace falta darle acceso a nadie.
 Después, en el proyecto: `auditar-repo` → `instalar-harness` → pasos manuales en GitHub que lista esa skill.
 
+## Actualizar el plugin
+
+Cuando se publica una versión nueva (la de `plugin/.claude-plugin/plugin.json`), cada persona la recoge en su
+equipo con dos comandos. El primero descarga de GitHub la lista nueva del marketplace; el segundo instala la versión
+nueva del plugin:
+
+```bash
+claude plugin marketplace update harness-ia
+```
+
+```bash
+claude plugin update harness-ia@harness-ia
+```
+
+Después hay que **cerrar la sesión de Claude y abrir una nueva**: los hooks y las skills se cargan al arrancar.
+
+Para saber qué versión está usando un equipo, mira las carpetas de `~/.claude/plugins/cache/harness-ia/harness-ia/`
+(en Windows, `C:\Users\<usuario>\.claude\plugins\cache\harness-ia\harness-ia\`): la sesión usa la más reciente. Los
+mensajes de bloqueo del guardián también la muestran en la ruta (`…\harness-ia\0.3.0\hooks\guard.mjs`).
+
 ## Preparar el equipo de una persona
 
 Lo hace alguien técnico, una vez por persona y equipo. Sin esto, el plugin no protege nada en ese equipo.
@@ -129,7 +149,12 @@ Lo hace alguien técnico, una vez por persona y equipo. Sin esto, el plugin no p
 | El repo del proyecto clonado y sus dependencias instaladas (`npm ci`) | Para que la verificación funcione |
 | La identidad de git que exija el proyecto, en el clon (`git config user.name` / `user.email`) | Algunos despliegues solo publican commits de una identidad; el agente no debe cambiarla |
 | `gh` instalado y con sesión iniciada | Con la política `rama`, el agente abre las PRs con `gh` |
-| `HARNESS_PERSONA` en `~/.claude/settings.json`: `{ "env": { "HARNESS_PERSONA": "rafa" } }` | La bitácora sabe quién es (su archivo y sus entradas del registro) |
+| `HARNESS_PERSONA` en la configuración de usuario de Claude: `{ "env": { "HARNESS_PERSONA": "rafa" } }` | La bitácora sabe quién es (su archivo y sus entradas del registro) |
+
+La configuración de usuario de Claude es `~/.claude/settings.json`: en Windows,
+`C:\Users\<usuario>\.claude\settings.json` (se abre con `notepad $env:USERPROFILE\.claude\settings.json`). No es el
+`.claude/settings.json` del proyecto: ese es común a todos y lo protege el guardián. Si el archivo de usuario ya tiene
+un bloque `"env"`, la clave va dentro de él; si no, se añade el bloque.
 
 Al terminar, comprueba en ese equipo que el guardián funciona: abre el proyecto en Claude, acepta el plugin y pide
 leer `.env` y hacer `git push origin main`. Los dos deben quedar bloqueados.
@@ -148,3 +173,6 @@ npm run verify
 
 Ejecuta los tests de las reglas del guardián, de la configuración y de la estructura del plugin (`node:test`, sin
 dependencias). Bitácora en [docs/bitacora.md](docs/bitacora.md).
+
+Para publicar una versión nueva, sube el número en `plugin/.claude-plugin/plugin.json` (y en `package.json`): cada
+versión se instala en su propia carpeta, y sin cambiar el número los equipos no recogen los cambios.
