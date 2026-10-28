@@ -1,11 +1,11 @@
 // Tests de la configuración: valores por defecto y que las protecciones del harness no se puedan quitar.
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, describe, it } from "node:test";
-import { HARNESS_BLOCKED_TOOLS, HARNESS_PATHS, hasWorkToVerify, loadConfig } from "../plugin/hooks/config.mjs";
+import { findWorktreeRoot, HARNESS_BLOCKED_TOOLS, HARNESS_PATHS, hasWorkToVerify, loadConfig, readMaintenance, settingsFilesFor } from "../plugin/hooks/config.mjs";
 
 const temporaryDirs = [];
 
@@ -18,6 +18,12 @@ function projectWithConfig(configText) {
   }
   return projectDir;
 }
+
+const git = (directory, ...args) =>
+  execFileSync("git", ["-c", "user.name=prueba", "-c", "user.email=prueba@example.com", "-c", "commit.gpgsign=false", ...args], {
+    cwd: directory,
+    stdio: "ignore",
+  });
 
 after(() => temporaryDirs.forEach((directory) => rmSync(directory, { recursive: true, force: true })));
 
@@ -63,12 +69,6 @@ describe("Configuración del harness", () => {
 });
 
 describe("Fin de turno: qué trabajo hay que verificar", () => {
-  const git = (directory, ...args) =>
-    execFileSync("git", ["-c", "user.name=prueba", "-c", "user.email=prueba@example.com", "-c", "commit.gpgsign=false", ...args], {
-      cwd: directory,
-      stdio: "ignore",
-    });
-
   function repositoryOnMain() {
     const directory = projectWithConfig();
     git(directory, "init", "-b", "main");
@@ -105,5 +105,90 @@ describe("Fin de turno: qué trabajo hay que verificar", () => {
     const directory = projectWithConfig();
 
     assert.equal(hasWorkToVerify(directory, "main"), true);
+  });
+});
+
+describe("Worktrees: la copia del repositorio que contiene un archivo", () => {
+  function repositoryWithWorktree() {
+    const projectDir = projectWithConfig();
+    git(projectDir, "init", "-b", "main");
+    writeFileSync(path.join(projectDir, "CLAUDE.md"), "reglas");
+    git(projectDir, "add", "CLAUDE.md");
+    git(projectDir, "commit", "-m", "inicio");
+    git(projectDir, "worktree", "add", "-b", "sesion", path.join(".claude", "worktrees", "sesion"));
+    return { projectDir, worktreeDir: realpathSync(path.join(projectDir, ".claude", "worktrees", "sesion")) };
+  }
+
+  it("un archivo de un worktree del proyecto, aunque aún no exista, pertenece a ese worktree", () => {
+    const { projectDir, worktreeDir } = repositoryWithWorktree();
+
+    const results = [
+      findWorktreeRoot(path.join(worktreeDir, "CLAUDE.md"), projectDir),
+      findWorktreeRoot(path.join(worktreeDir, "supabase", "migrations", "066_x.sql"), projectDir),
+      findWorktreeRoot(worktreeDir, projectDir),
+    ];
+
+    results.forEach((root) => assert.equal(path.relative(worktreeDir, root), ""));
+  });
+
+  it("un archivo de la carpeta principal pertenece a la carpeta principal", () => {
+    const { projectDir } = repositoryWithWorktree();
+
+    const root = findWorktreeRoot(path.join(projectDir, "CLAUDE.md"), projectDir);
+
+    assert.equal(path.relative(realpathSync(projectDir), root), "");
+  });
+
+  it("un archivo de otro repositorio, o fuera de git, no es del proyecto", () => {
+    const { projectDir } = repositoryWithWorktree();
+    const otherRepository = projectWithConfig();
+    git(otherRepository, "init", "-b", "main");
+
+    const results = [findWorktreeRoot(path.join(otherRepository, "CLAUDE.md"), projectDir), findWorktreeRoot(path.join(projectWithConfig(), "CLAUDE.md"), projectDir)];
+
+    assert.deepEqual(results, [undefined, undefined]);
+  });
+});
+
+describe("Modo mantenimiento: solo desde la variable puesta al arrancar", () => {
+  function settingsFile(content) {
+    const directory = projectWithConfig();
+    const file = path.join(directory, "settings.json");
+    writeFileSync(file, content);
+    return file;
+  }
+
+  it("sin HARNESS_MAINTENANCE=1, no está activo", () => {
+    const result = readMaintenance({ HARNESS_MAINTENANCE: "0" }, []);
+
+    assert.deepEqual(result, { active: false, ignoredBecause: [] });
+  });
+
+  it("con la variable y ningún ajuste que la defina, está activo", () => {
+    const cleanSettings = settingsFile(JSON.stringify({ env: { HARNESS_PERSONA: "luis" } }));
+
+    const result = readMaintenance({ HARNESS_MAINTENANCE: "1" }, [cleanSettings, path.join(projectWithConfig(), "no-existe.json")]);
+
+    assert.deepEqual(result, { active: true, ignoredBecause: [] });
+  });
+
+  it("si un settings.json la define, no vale, aunque el archivo no sea JSON válido", () => {
+    const withVariable = settingsFile(JSON.stringify({ env: { HARNESS_MAINTENANCE: "1" } }));
+    const broken = settingsFile('{ "env": { "HARNESS_MAINTENANCE": "1", }');
+
+    const result = readMaintenance({ HARNESS_MAINTENANCE: "1" }, [withVariable, broken]);
+
+    assert.deepEqual(result, { active: false, ignoredBecause: [withVariable, broken] });
+  });
+
+  it("se miran los ajustes de la persona y los de cada carpeta del proyecto, sin repetir", () => {
+    const result = settingsFilesFor({ claudeConfigDir: path.join("casa", ".claude"), projectDirs: ["proyecto", "proyecto"] });
+
+    assert.deepEqual(result, [
+      path.join("casa", ".claude", "settings.json"),
+      path.join("casa", ".claude", "settings.local.json"),
+      path.join("proyecto", ".claude", "settings.json"),
+      path.join("proyecto", ".claude", "settings.local.json"),
+    ]);
   });
 });

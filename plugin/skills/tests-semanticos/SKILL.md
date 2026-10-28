@@ -40,7 +40,7 @@ copia. Si no falla, el test no protege esa regla.
 
 Para cada test, anota:
 - **Qué protege:** la regla, el término o el caso (o "nada identificable").
-- **Qué falla** de los criterios 1–5, con la línea.
+- **Qué falla** de los criterios 1–6, con la línea.
 - **Qué falta:** reglas o casos sin ningún test, sobre todo los negativos y los límites.
 
 No corrijas al revisar: informa y deja que la persona decida.
