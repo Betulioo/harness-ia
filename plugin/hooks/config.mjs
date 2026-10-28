@@ -1,6 +1,6 @@
 // Configuración del harness en cada proyecto: `.claude/harness.json`, mezclada con los valores por defecto.
 import { execFileSync } from "node:child_process";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 
 export const CONFIG_PATH = ".claude/harness.json";
@@ -92,6 +92,74 @@ export function hasWorkToVerify(directory, mainBranch) {
     }
   }
   return true;
+}
+
+/**
+ * Raíz de la copia de trabajo que contiene `targetPath` (un archivo, que puede no existir aún, o una carpeta), si es
+ * del mismo repositorio que `projectDir`: la carpeta principal o uno de sus worktrees, estén donde estén. undefined
+ * si es otro repositorio o git no responde.
+ */
+export function findWorktreeRoot(targetPath, projectDir) {
+  const target = readRepository(nearestExistingDir(targetPath));
+  const project = readRepository(projectDir);
+  if (!target || !project) return undefined;
+  return path.relative(target.commonDir, project.commonDir) === "" ? target.root : undefined;
+}
+
+function readRepository(directory) {
+  try {
+    const [root, commonDir] = execFileSync("git", ["rev-parse", "--path-format=absolute", "--show-toplevel", "--git-common-dir"], {
+      cwd: directory,
+      encoding: "utf8",
+      stdio: ["ignore", "pipe", "ignore"],
+    })
+      .trim()
+      .split(/\r?\n/);
+    return root && commonDir ? { root: path.resolve(root), commonDir: path.resolve(commonDir) } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Write puede crear un archivo en carpetas que aún no existen: git se pregunta desde la más cercana que sí. */
+function nearestExistingDir(targetPath) {
+  let current = path.resolve(targetPath);
+  while (!existsSync(current) && path.dirname(current) !== current) current = path.dirname(current);
+  return existsSync(current) && statSync(current).isFile() ? path.dirname(current) : current;
+}
+
+/**
+ * Modo mantenimiento: solo con `HARNESS_MAINTENANCE=1` puesto al arrancar Claude Code. Si la variable aparece en un
+ * archivo de ajustes que el agente podría escribir (el bloque `env` de un settings.json), no vale: Claude Code no le
+ * dice al hook de dónde viene la variable, y así el agente no puede activarlo para la sesión siguiente.
+ * Devuelve { active, ignoredBecause: [archivos donde aparece] }.
+ */
+export function readMaintenance(environment, settingsFiles) {
+  if (environment.HARNESS_MAINTENANCE !== "1") return { active: false, ignoredBecause: [] };
+  const ignoredBecause = settingsFiles.filter(definesMaintenance);
+  return { active: ignoredBecause.length === 0, ignoredBecause };
+}
+
+function definesMaintenance(settingsFile) {
+  if (!existsSync(settingsFile)) return false;
+  const text = readFileSync(settingsFile, "utf8");
+  try {
+    const environment = JSON.parse(text).env;
+    return typeof environment === "object" && environment !== null && Object.hasOwn(environment, "HARNESS_MAINTENANCE");
+  } catch {
+    // Un archivo que no se puede leer como JSON tampoco se da por limpio.
+    return text.includes("HARNESS_MAINTENANCE");
+  }
+}
+
+/** Archivos de ajustes de Claude Code (de la persona y de cada carpeta del proyecto) que pueden definir variables. */
+export function settingsFilesFor({ claudeConfigDir, projectDirs }) {
+  const userFiles = [path.join(claudeConfigDir, "settings.json"), path.join(claudeConfigDir, "settings.local.json")];
+  const projectFiles = [...new Set(projectDirs)].flatMap((directory) => [
+    path.join(directory, ".claude", "settings.json"),
+    path.join(directory, ".claude", "settings.local.json"),
+  ]);
+  return [...userFiles, ...projectFiles];
 }
 
 /** Rama actual, o "" si no se puede saber (fuera de git o HEAD separado se tratan como la rama principal). */

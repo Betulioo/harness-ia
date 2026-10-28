@@ -41,6 +41,13 @@ describe("Manifiestos del plugin", () => {
 
     assert.deepEqual(missing, []);
   });
+
+  it("la versión del plugin y la del repositorio son la misma", () => {
+    const plugin = readJson(path.join(PLUGIN_ROOT, ".claude-plugin", "plugin.json"));
+    const packageManifest = readJson(path.join(REPO_ROOT, "package.json"));
+
+    assert.equal(plugin.version, packageManifest.version);
+  });
 });
 
 describe("Skills y agentes", () => {

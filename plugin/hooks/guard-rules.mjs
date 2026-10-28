@@ -28,12 +28,20 @@ const HARMLESS_REDIRECTIONS = /\d*>&\d+|\d*>\s*(\/dev\/null|\$null|NUL)\b/gi;
 const USER_SETTINGS_FILES = new Set(["settings.json", "settings.local.json"]);
 const USER_SETTINGS_IN_COMMAND =
   /(~|\$home|\$\{home\}|\$env:userprofile|%userprofile%|\/users\/[^/\s]+|\/home\/[^/\s]+)\/\.claude\/settings(\.local)?\.json/i;
+const MAINTENANCE_VARIABLE = /HARNESS_MAINTENANCE/i;
+// Leer la variable (`node -e "console.log(process.env.HARNESS_MAINTENANCE)"`, `echo $HARNESS_MAINTENANCE`) no la fija.
+// Con `=` detrás ya no es leer: `$env:HARNESS_MAINTENANCE = "1"` escrito en $PROFILE la fija.
+const MAINTENANCE_READ = /(process\.env\.|\$env:|\$\{?|%)HARNESS_MAINTENANCE\}?%?(?!\s*=)/gi;
+// Formas de dejar una variable fijada en el sistema de Windows. Escribirla en un perfil (~/.bashrc) ya es escribir.
+const PERSISTENT_ENV_WRITE = /\bsetx\b|SetEnvironmentVariable|\breg(\.exe)?\s+add\b/i;
 // Subcomandos de npm que reescriben package.json o el lock. `npm ci` instala lo que ya hay y queda permitido.
 const NPM_MANIFEST_SUBCOMMANDS = new Set([
   "pkg", "install", "i", "add", "uninstall", "un", "remove", "rm", "r", "update", "up", "upgrade", "dedupe", "link",
   "init",
 ]);
 const MANIFEST_FILES = ["package.json", "package-lock.json"];
+// Donde la app de escritorio crea un worktree por sesión.
+const APP_WORKTREE_PREFIX = /^\.claude\/worktrees\/[^/]+\//;
 
 const PUSH_FORBIDDEN_FLAGS = new Set([
   "-f", "--force", "--force-if-includes", "--mirror", "--delete", "-d", "--all", "--prune", "--no-verify",
@@ -47,6 +55,16 @@ const CONFIG_WRITE_OPTIONS = new Set([
 ]);
 const CONFIG_READ_OPTIONS = new Set(["--get", "--get-all", "--get-regexp", "--list", "-l", "get", "list"]);
 
+// Etiquetas: `gh pr|issue create|edit` con --label, --add-label, --remove-label (también con =) o -l, sola o junto a
+// otras letras (`-dl`). En `list` y `view`, -l y --label solo filtran.
+const LABEL_GROUPS = new Set(["pr", "issue"]);
+const LABEL_ACTIONS = new Set(["create", "edit"]);
+const LABEL_FLAG = /^--(add-|remove-)?label(=|$)|^-[a-zA-Z]*l/;
+const LABEL_REASON =
+  "las etiquetas de una PR o una issue las pone o las quita una persona en GitHub: algunas autorizan cambios en la CI. Crea la PR sin etiquetas y, si necesita una, díselo a la persona.";
+// Herramientas de MCP que solo leen: las de etiquetas que no empiezan así las cambian.
+const READ_ONLY_MCP_TOOL = /__(list|get|search|read)_/i;
+
 export function evaluateToolUse(hookInput, context) {
   const toolName = hookInput.tool_name ?? "";
   const toolInput = hookInput.tool_input ?? {};
@@ -54,9 +72,18 @@ export function evaluateToolUse(hookInput, context) {
   if (matchesAny(toolName, context.config.blockedTools)) {
     return blocked(`la herramienta ${toolName} está prohibida: mezcla o aprueba PRs, o la prohíbe este proyecto (blockedTools en .claude/harness.json).`);
   }
+  if (!context.maintenance && changesLabelsByMcp(toolName, toolInput)) return blocked(LABEL_REASON);
   if (SHELL_TOOLS.has(toolName)) return evaluateCommand(String(toolInput.command ?? ""), context);
   if (READ_TOOLS.has(toolName) || WRITE_TOOLS.has(toolName)) return evaluateFileTool(toolName, toolInput, context);
   return ALLOWED;
+}
+
+/** add_labels, remove_label, o crear/editar una issue o PR pasando `labels` (p. ej. update_issue del MCP de GitHub). */
+function changesLabelsByMcp(toolName, toolInput) {
+  if (!toolName.startsWith("mcp__") || READ_ONLY_MCP_TOOL.test(toolName)) return false;
+  const labels = toolInput.labels;
+  const passesLabels = Array.isArray(labels) ? labels.length > 0 : labels !== undefined && labels !== null;
+  return /label/i.test(toolName) || passesLabels;
 }
 
 // ---------- Herramientas de archivos ----------
@@ -71,11 +98,24 @@ function evaluateFileTool(toolName, toolInput, context) {
     if (WRITE_TOOLS.has(toolName) && isUserSettingsFile(filePath, context)) {
       return blocked(`${filePath} son los ajustes de Claude Code de la persona: los cambia ella, no el agente.`);
     }
+    if (WRITE_TOOLS.has(toolName) && writesMaintenanceOutsideProject(filePath, toolInput, context)) {
+      return blocked(`${filePath} está fuera del proyecto y lo que se escribe menciona HARNESS_MAINTENANCE: el modo mantenimiento lo activa una persona al arrancar Claude, no el agente.`);
+    }
     if (WRITE_TOOLS.has(toolName) && !context.maintenance && isProtectedPath(filePath, context)) {
       return blocked(`${filePath} forma parte de las protecciones del proyecto y solo lo cambia alguien técnico.`);
     }
   }
   return ALLOWED;
+}
+
+/** Un perfil de la terminal (~/.bashrc, $PROFILE…) con HARNESS_MAINTENANCE lo activaría al arrancar la sesión siguiente. */
+function writesMaintenanceOutsideProject(filePath, toolInput, context) {
+  const writtenText = [toolInput.content, toolInput.new_string, toolInput.new_source, ...(toolInput.edits ?? []).map((edit) => edit?.new_string)]
+    .filter((text) => typeof text === "string")
+    .join("\n");
+  if (!MAINTENANCE_VARIABLE.test(writtenText)) return false;
+  const absolutePath = path.resolve(context.projectDir, filePath);
+  return relativeInside(context.projectDir, absolutePath) === undefined && !context.findWorktreeRoot(absolutePath);
 }
 
 function isSecretFile(filePath) {
@@ -90,10 +130,30 @@ function isUserSettingsFile(filePath, context) {
   return USER_SETTINGS_FILES.has(relativePath.toLowerCase());
 }
 
+/**
+ * Una ruta protegida cuenta desde la raíz de la copia del repositorio que contiene el archivo: la carpeta del
+ * proyecto o uno de sus worktrees. Desde la carpeta principal, `.claude/worktrees/<n>/CLAUDE.md` no coincide con
+ * `CLAUDE.md`, y el agente de una sesión de worktree escribe ahí.
+ */
 function isProtectedPath(filePath, context) {
   const absolutePath = path.resolve(context.projectDir, filePath);
-  const relativePath = toForwardSlashes(path.relative(context.projectDir, absolutePath)).toLowerCase();
-  if (relativePath.startsWith("..")) return false;
+  const fromProject = relativeInside(context.projectDir, absolutePath);
+  if (fromProject !== undefined && matchesProtectedPath(fromProject, context)) return true;
+  // Sin git, la carpeta de worktrees de la app se reconoce por su forma.
+  const insideAppWorktree = fromProject?.match(APP_WORKTREE_PREFIX);
+  if (insideAppWorktree && matchesProtectedPath(fromProject.slice(insideAppWorktree[0].length), context)) return true;
+  const worktreeRoot = context.findWorktreeRoot(absolutePath);
+  const fromWorktree = worktreeRoot ? relativeInside(worktreeRoot, absolutePath) : undefined;
+  return fromWorktree !== undefined && matchesProtectedPath(fromWorktree, context);
+}
+
+/** Ruta relativa en minúsculas y con `/`, o undefined si `absolutePath` queda fuera de `directory`. */
+function relativeInside(directory, absolutePath) {
+  const relativePath = toForwardSlashes(path.relative(directory, absolutePath)).toLowerCase();
+  return relativePath.startsWith("..") || path.isAbsolute(relativePath) ? undefined : relativePath;
+}
+
+function matchesProtectedPath(relativePath, context) {
   return context.config.protectedPaths.some((protectedPath) => {
     const normalized = protectedPath.toLowerCase();
     return normalized.endsWith("/") ? relativePath.startsWith(normalized) : relativePath === normalized;
@@ -103,7 +163,7 @@ function isProtectedPath(filePath, context) {
 // ---------- Comandos de terminal ----------
 
 function evaluateCommand(command, context) {
-  const wholeCommandChecks = [checkSecretFiles, checkUserSettingsInCommand, checkProtectedPathsInCommand, checkConfiguredCommands];
+  const wholeCommandChecks = [checkSecretFiles, checkUserSettingsInCommand, checkMaintenanceSwitch, checkProtectedPathsInCommand, checkConfiguredCommands];
   for (const check of wholeCommandChecks) {
     const verdict = check(command, context);
     if (verdict.blocked) return verdict;
@@ -162,6 +222,19 @@ function checkUserSettingsInCommand(command, context) {
     return blocked("el comando parece modificar los ajustes de Claude Code de la persona (~/.claude/settings.json): los cambia ella, no el agente.");
   }
   return ALLOWED;
+}
+
+/**
+ * El modo mantenimiento se activa al arrancar Claude, no desde dentro: el agente no deja HARNESS_MAINTENANCE fijado
+ * en el sistema (`setx`, `SetEnvironmentVariable`, el registro) ni lo escribe en un archivo. Ponerla solo para una
+ * orden (`HARNESS_MAINTENANCE=1 npm test`) no cambia nada en el guardián y se permite.
+ */
+function checkMaintenanceSwitch(command) {
+  if (!MAINTENANCE_VARIABLE.test(command.replace(MAINTENANCE_READ, ""))) return ALLOWED;
+  const persists = PERSISTENT_ENV_WRITE.test(command) || WRITE_INDICATOR.test(command.replace(HARMLESS_REDIRECTIONS, ""));
+  return persists
+    ? blocked("el comando parece dejar activado el modo mantenimiento (HARNESS_MAINTENANCE). Lo activa una persona al arrancar Claude, no el agente.")
+    : ALLOWED;
 }
 
 function checkProtectedPathsInCommand(command, context) {
@@ -325,10 +398,13 @@ function checkGitHubCli(segment, context) {
   if (group === "pr" && action === "review" && args.some((arg) => arg === "--approve" || arg === "-a")) {
     return blocked("aprobar una PR le toca a una persona en GitHub, no al agente.");
   }
-  // Las etiquetas pueden autorizar algo en la CI (p. ej. tocar rutas protegidas): las pone una persona.
-  if (group === "label" && action !== "list") return blocked(`gh label ${action} cambia las etiquetas del repositorio en GitHub.`);
-  if (group === "pr" && action === "edit" && args.some((arg) => /^--(add|remove)-label/.test(arg))) {
-    return blocked("las etiquetas de una PR las pone o las quita una persona en GitHub: algunas autorizan cambios en la CI.");
+  if (!context.maintenance) {
+    const labelVerdict = checkLabels(group, action, args);
+    if (labelVerdict.blocked) return labelVerdict;
+  }
+  // Un alias ejecuta otra orden con un nombre nuevo, y el guardián solo ve el nombre.
+  if (group === "alias" && ["set", "import"].includes(action)) {
+    return blocked(`gh alias ${action} crea atajos que el guardián no puede revisar. Escribe la orden completa cada vez.`);
   }
   if (group === "api" && apiMethod(invocation.args) !== "GET") {
     return blocked("con `gh api` solo se permite leer (GET): escribir podría cambiar la configuración del repositorio.");
@@ -342,6 +418,18 @@ function checkGitHubCli(segment, context) {
   if (group === "workflow" && action === "disable") return blocked("no se pueden desactivar los workflows de la CI.");
   if (group === "auth" && (action === "token" || args.includes("--show-token") || args.includes("-t"))) {
     return blocked("ese comando muestra el token de GitHub.");
+  }
+  return ALLOWED;
+}
+
+/**
+ * Las etiquetas pueden autorizar algo en la CI (p. ej. tocar rutas protegidas): las pone una persona. Una PR también
+ * es una issue, así que `gh issue edit` le cambia las etiquetas igual que `gh pr edit`.
+ */
+function checkLabels(group, action, args) {
+  if (group === "label" && action !== "list") return blocked(`gh label ${action} cambia las etiquetas del repositorio en GitHub.`);
+  if (LABEL_GROUPS.has(group) && LABEL_ACTIONS.has(action) && args.some((arg) => LABEL_FLAG.test(arg))) {
+    return blocked(LABEL_REASON);
   }
   return ALLOWED;
 }
@@ -360,13 +448,18 @@ function checkPackageManifest(segment, context) {
   return blocked(`npm ${subcommand} cambia package.json o su lock, que son rutas protegidas. Para instalar lo que ya está en el lock, usa \`npm ci\`; añadir, quitar o actualizar dependencias lo hace alguien técnico.`);
 }
 
+/**
+ * Método HTTP de `gh api`. Sin método explícito, enviar campos o un cuerpo es POST. Se reconocen también las formas
+ * pegadas (`-XPOST`, `-fname=x`, `--field=x`) y las letras agrupadas (`-iX`): si no se sabe, no es GET.
+ */
 function apiMethod(args) {
-  const methodIndex = args.findIndex((arg) => arg === "-X" || arg === "--method");
-  if (methodIndex >= 0) return (args[methodIndex + 1] ?? "").toUpperCase();
-  const inlineMethod = args.find((arg) => arg.startsWith("--method="));
-  if (inlineMethod) return inlineMethod.slice("--method=".length).toUpperCase();
-  const sendsFields = args.some((arg) => ["-f", "-F", "--field", "--raw-field", "--input"].includes(arg));
-  return sendsFields ? "POST" : "GET";
+  for (const [index, arg] of args.entries()) {
+    if (arg === "-X" || arg === "--method") return (args[index + 1] ?? "").toUpperCase();
+    const inlineMethod = arg.match(/^(?:--method=|-X=?)(.+)$/);
+    if (inlineMethod) return inlineMethod[1].toUpperCase();
+  }
+  const sendsBody = args.some((arg) => /^--(field|raw-field|input)(=|$)/.test(arg) || /^-[a-zA-Z]*[fFX]/.test(arg));
+  return sendsBody ? "POST" : "GET";
 }
 
 // ---------- utilidades ----------

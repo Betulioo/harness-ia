@@ -73,13 +73,17 @@ Siempre:
 - Borrados recursivos, salvo de carpetas generadas (`node_modules`, `.next`, `dist`…).
 - Editar los ajustes de Claude Code de la persona (`~/.claude/settings*.json`), también en modo mantenimiento: ahí
   vive `HARNESS_MAINTENANCE`.
-- Poner o quitar etiquetas (`gh pr edit --add-label|--remove-label`, `gh label …` salvo `list`): algunas autorizan
-  cambios en la CI.
+- Dejar fijado `HARNESS_MAINTENANCE` (`setx`, `SetEnvironmentVariable`, `reg add`, escribirla en un archivo por
+  terminal o en un archivo fuera del proyecto, como `~/.bashrc`). Leerla o ponerla para una sola orden, sí.
+- `gh alias set|import`: un atajo esconde la orden de verdad.
 - Las herramientas que mezclan, aprueban o activan el auto-merge de una PR, vengan de un MCP o de la app.
 
 Salvo en modo mantenimiento:
 - Editar las protecciones del propio harness (`.claude/settings*.json`, `.claude/harness.json`, `.githooks/`,
-  `.github/workflows/`) y las `protectedPaths` del proyecto.
+  `.github/workflows/`) y las `protectedPaths` del proyecto. La ruta cuenta desde la copia del repositorio que
+  contiene el archivo, así que también se protegen en los worktrees (`.claude/worktrees/<n>/CLAUDE.md`).
+- Poner o quitar etiquetas: `gh pr|issue create|edit` con `--label`, `-l`, `--add-label` o `--remove-label`,
+  `gh label …` (salvo `list`) y las herramientas de MCP que las cambian. Algunas autorizan cambios en la CI.
 - `git apply` y `git am`: un parche cambia archivos sin nombrarlos.
 - Si el proyecto protege `package.json` o su lock: `npm pkg set|delete`, `npm install|add|uninstall|update…`
   (`npm ci` sí se permite).
@@ -114,11 +118,14 @@ las mezcla una persona en GitHub.
 - Una expresión mal escrita hace que `harness.json` no sea válido, y el guardián bloquea hasta que se corrija.
 
 **Modo mantenimiento:** quien sea técnico arranca Claude con `HARNESS_MAINTENANCE=1` para editar las rutas
-protegidas. Los secretos siguen bloqueados. El agente no puede activarlo desde dentro de la sesión: no puede editar
-`~/.claude/settings.json`.
+protegidas. Los secretos siguen bloqueados. Solo vale así, puesta al arrancar: si la variable aparece en el bloque
+`env` de algún `settings.json` (de la persona o del proyecto), el guardián no activa el mantenimiento y lo dice al
+bloquear, porque Claude Code no le cuenta de dónde viene la variable y esos archivos los podría escribir el agente.
 
 **Hook de fin de turno:** ejecuta `verifyCommand` si hay cambios sin commitear o commits sin subir (por delante de la
-rama remota o, si no la hay, de la principal). Si git no responde, también verifica.
+rama remota o, si no la hay, de la principal), en la copia donde trabaja la sesión (en un worktree, el worktree). Si
+git no responde, también verifica. Si no puede leer la petición o `harness.json`, no deja terminar el turno y lo
+explica.
 
 ## Instalación
 

@@ -7,7 +7,7 @@ import { evaluateToolUse } from "../plugin/hooks/guard-rules.mjs";
 const PROJECT_DIR = "/proyecto";
 const HOME_DIR = "/home/persona";
 
-function buildContext({ branch = "cambio/titulo", maintenance = false, ...configOverrides } = {}) {
+function buildContext({ branch = "cambio/titulo", maintenance = false, worktreeRoot, ...configOverrides } = {}) {
   return {
     config: {
       ...DEFAULT_CONFIG,
@@ -19,6 +19,8 @@ function buildContext({ branch = "cambio/titulo", maintenance = false, ...config
     projectDir: PROJECT_DIR,
     homeDir: HOME_DIR,
     getCurrentBranch: () => branch,
+    // Sin git en los tests: la raíz del worktree que contiene el archivo, si la hay, la da cada test.
+    findWorktreeRoot: () => worktreeRoot,
     maintenance,
   };
 }
@@ -179,6 +181,76 @@ describe("GitHub: las PRs las aprueba y mezcla una persona", () => {
     assertAllowed(['gh pr edit 12 --title "Nuevo título"', "gh label list"]);
   });
 
+  it("bloquea poner etiquetas al crear la PR y por gh issue edit, que también cambia las de una PR", () => {
+    assertBlocked([
+      'gh pr create --title "x" --body "y" --label mantenimiento',
+      'gh pr create --title "x" -l mantenimiento',
+      "gh pr create --fill --label=mantenimiento",
+      "gh pr create --fill -dl mantenimiento",
+      "gh issue edit 12 --add-label mantenimiento",
+      "gh issue edit 12 --remove-label=mantenimiento",
+      "gh issue create --title x -l mantenimiento",
+    ]);
+  });
+
+  it("permite filtrar por etiqueta y editar una issue sin tocar sus etiquetas", () => {
+    assertAllowed(["gh pr list --label mantenimiento", "gh issue list -l bug", 'gh issue edit 12 --title "Otro título"', "gh pr view 12 --json labels"]);
+  });
+
+  it("bloquea poner etiquetas con gh api, también con el método o los campos pegados", () => {
+    assertBlocked([
+      'gh api repos/org/repo/issues/12/labels -f "labels[]=mantenimiento"',
+      "gh api -XPOST repos/org/repo/issues/12/labels",
+      "gh api --method=PUT repos/org/repo/issues/12/labels",
+      "gh api repos/org/repo/issues/12/labels -flabels[]=mantenimiento",
+      "gh api repos/org/repo/issues/12/labels --input etiquetas.json",
+      "gh api -iX POST repos/org/repo/issues/12/labels",
+      "gh api graphql -F query=@poner-etiqueta.graphql",
+    ]);
+  });
+
+  it("permite leer las etiquetas con gh api, también con campos si el método es GET", () => {
+    assertAllowed(["gh api repos/org/repo/issues/12/labels", "gh api -X GET repos/org/repo/labels -f per_page=100", "gh api --paginate repos/org/repo/labels"]);
+  });
+
+  it("bloquea las herramientas de MCP que ponen o quitan etiquetas", () => {
+    const attempts = [
+      { tool_name: "mcp__github__add_labels", tool_input: { issue_number: 12, labels: ["mantenimiento"] } },
+      { tool_name: "mcp__0a1b2c3d-uuid__remove_label", tool_input: { name: "mantenimiento" } },
+      { tool_name: "mcp__github__update_issue", tool_input: { issue_number: 12, labels: ["mantenimiento"] } },
+      { tool_name: "mcp__github__create_pull_request", tool_input: { title: "x", labels: ["mantenimiento"] } },
+    ];
+
+    const results = attempts.map((attempt) => isBlocked(attempt));
+
+    assert.deepEqual(results, [true, true, true, true]);
+  });
+
+  it("permite las herramientas de MCP que leen etiquetas o no las tocan", () => {
+    const attempts = [
+      { tool_name: "mcp__github__list_labels", tool_input: {} },
+      { tool_name: "mcp__github__list_issues", tool_input: { labels: ["bug"] } },
+      { tool_name: "mcp__github__update_issue", tool_input: { issue_number: 12, title: "Otro título" } },
+      { tool_name: "mcp__github__create_pull_request", tool_input: { title: "x", labels: [] } },
+    ];
+
+    const results = attempts.map((attempt) => isBlocked(attempt));
+
+    assert.deepEqual(results, [false, false, false, false]);
+  });
+
+  it("en mantenimiento, la persona técnica puede poner etiquetas a través del agente", () => {
+    const context = buildContext({ maintenance: true });
+
+    assertAllowed(["gh pr create --fill --label mantenimiento", "gh issue edit 12 --add-label mantenimiento", "gh label create mantenimiento"], context);
+    assert.equal(isBlocked({ tool_name: "mcp__github__add_labels", tool_input: { labels: ["mantenimiento"] } }, context), false);
+  });
+
+  it("bloquea crear atajos de gh, que esconden la orden de verdad", () => {
+    assertBlocked(["gh alias set et 'pr edit --add-label mantenimiento'", "gh alias import atajos.yml"]);
+    assertAllowed(["gh alias list"]);
+  });
+
   it("bloquea las herramientas de merge, aprobación y auto-merge de cualquier MCP o de la app", () => {
     const attempts = ["mcp__github__merge_pull_request", "mcp__ccd_pr__set_auto_merge", "mcp__0a1b2c3d-uuid__enable_auto_merge"];
 
@@ -312,6 +384,88 @@ describe("Protecciones del propio harness y rutas protegidas del proyecto", () =
     const results = [isBlocked(fileTool("Edit", "/proyecto/.github/workflows/ci.yml"), context), isBlocked(fileTool("Read", "/proyecto/.env"), context)];
 
     assert.deepEqual(results, [false, true]);
+  });
+});
+
+describe("Worktrees: las rutas protegidas cuentan desde la copia del repositorio donde está el archivo", () => {
+  const protectsClaudeMd = { protectedPaths: ["CLAUDE.md", "supabase/migrations/"] };
+
+  it("bloquea editar rutas protegidas en un worktree de la app dentro del proyecto, aunque git no responda", () => {
+    const context = buildContext(protectsClaudeMd);
+    const attempts = [
+      fileTool("Edit", "/proyecto/.claude/worktrees/sesion-1/CLAUDE.md"),
+      fileTool("Write", "/proyecto/.claude/worktrees/sesion-1/supabase/migrations/066_x.sql"),
+      fileTool("Edit", "C:\\proyecto\\.claude\\worktrees\\sesion-1\\.claude\\harness.json"),
+    ];
+
+    const results = attempts.map((attempt) => isBlocked(attempt, context));
+
+    assert.deepEqual(results, [true, true, true]);
+  });
+
+  it("bloquea editar rutas protegidas en un worktree del mismo repositorio que está fuera del proyecto", () => {
+    const context = buildContext({ ...protectsClaudeMd, worktreeRoot: "/worktrees/proyecto-sesion-2" });
+
+    const result = isBlocked(fileTool("Edit", "/worktrees/proyecto-sesion-2/CLAUDE.md"), context);
+
+    assert.equal(result, true);
+  });
+
+  it("permite editar el resto del worktree y archivos de otros repositorios", () => {
+    const attempts = [
+      [fileTool("Edit", "/proyecto/.claude/worktrees/sesion-1/src/app/page.tsx"), buildContext(protectsClaudeMd)],
+      [fileTool("Edit", "/worktrees/proyecto-sesion-2/src/app/page.tsx"), buildContext({ ...protectsClaudeMd, worktreeRoot: "/worktrees/proyecto-sesion-2" })],
+      [fileTool("Edit", "/otro-repo/CLAUDE.md"), buildContext(protectsClaudeMd)],
+    ];
+
+    const results = attempts.map(([attempt, context]) => isBlocked(attempt, context));
+
+    assert.deepEqual(results, [false, false, false]);
+  });
+
+  it("en mantenimiento se pueden editar también en el worktree", () => {
+    const context = buildContext({ ...protectsClaudeMd, maintenance: true });
+
+    const result = isBlocked(fileTool("Edit", "/proyecto/.claude/worktrees/sesion-1/CLAUDE.md"), context);
+
+    assert.equal(result, false);
+  });
+});
+
+describe("Modo mantenimiento: el agente no lo deja activado", () => {
+  it("bloquea fijar HARNESS_MAINTENANCE en el sistema o en un perfil de la terminal, también en mantenimiento", () => {
+    assertBlocked(
+      [
+        "setx HARNESS_MAINTENANCE 1",
+        '[Environment]::SetEnvironmentVariable("HARNESS_MAINTENANCE", "1", "User")',
+        "reg add HKCU\\Environment /v HARNESS_MAINTENANCE /d 1",
+        "echo 'export HARNESS_MAINTENANCE=1' >> ~/.bashrc",
+        "Add-Content $PROFILE '$env:HARNESS_MAINTENANCE = \"1\"'",
+      ],
+      buildContext({ maintenance: true }),
+    );
+  });
+
+  it("bloquea escribir HARNESS_MAINTENANCE en un archivo fuera del proyecto", () => {
+    const attempts = [
+      { tool_name: "Write", tool_input: { file_path: "/home/persona/.bashrc", content: "export HARNESS_MAINTENANCE=1\n" } },
+      { tool_name: "Edit", tool_input: { file_path: "/home/persona/.profile", old_string: "#", new_string: "HARNESS_MAINTENANCE=1" } },
+    ];
+
+    const results = attempts.map((attempt) => isBlocked(attempt, buildContext({ maintenance: true })));
+
+    assert.deepEqual(results, [true, true]);
+  });
+
+  it("permite leer la variable, usarla en una sola orden y mencionarla dentro del proyecto", () => {
+    assertAllowed([
+      'node -e "console.log(process.env.HARNESS_MAINTENANCE)"',
+      "echo $env:HARNESS_MAINTENANCE",
+      "HARNESS_MAINTENANCE=1 npm test",
+      "grep -rn HARNESS_MAINTENANCE README.md",
+    ]);
+    const result = isBlocked({ tool_name: "Edit", tool_input: { file_path: "/proyecto/README.md", old_string: "x", new_string: "HARNESS_MAINTENANCE=1 claude" } });
+    assert.equal(result, false);
   });
 });
 
